@@ -6,13 +6,38 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <style>body { background-color: #141414; color: #fff; overflow: hidden; }</style>
+    <style>
+        body { background-color: #141414; color: #fff; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        
+        /* 넷플릭스 다크테마 스크롤바 & 입력창 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #141414; }
+        ::-webkit-scrollbar-thumb { background: #404040; border-radius: 4px; }
+        .net-input { background-color: #333; border: 1px solid #404040; color: white; border-radius: 4px; padding: 0.75rem; width: 100%; outline: none; }
+        .net-input:focus { border-color: #e50914; }
+        
+        /* 풀캘린더 테마 오버라이드 */
+        :root {
+            --fc-page-bg-color: #141414;
+            --fc-border-color: #2f2f2f;
+            --fc-button-bg-color: #2f2f2f;
+            --fc-button-border-color: #2f2f2f;
+            --fc-button-hover-bg-color: #404040;
+            --fc-button-active-bg-color: #e50914;
+            --fc-today-bg-color: rgba(229, 9, 20, 0.1);
+        }
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #2f2f2f; }
+        .fc-h-event { cursor: pointer; transition: transform 0.2s; border: none; }
+        .fc-h-event:hover { transform: scale(1.02); filter: brightness(1.2); }
+        .fc-daygrid-day-number { padding: 8px !important; cursor: pointer; }
+    </style>
 </head>
 <body class="h-screen flex flex-col">
 
-    <!-- 로그인 화면 -->
+    <!-- 1. 로그인 화면 -->
     <div id="login-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#141414]">
-        <h1 class="text-5xl font-black text-[#e50914] mb-8">NetCalendar</h1>
+        <h1 class="text-6xl font-black text-[#e50914] mb-2 tracking-tighter">NETCALENDAR</h1>
+        <p class="text-gray-400 mb-8">팀 일정 공유를 위해 로그인하세요</p>
         <div id="g_id_onload"
              data-client_id="478451428995-2crtpdco8bt3mnm9vp19upqabeqbtj89.apps.googleusercontent.com"
              data-callback="handleCredentialResponse">
@@ -20,38 +45,237 @@
         <div class="g_id_signin" data-type="standard" data-theme="filled_black" data-size="large"></div>
     </div>
 
-    <!-- 캘린더 화면 -->
+    <!-- 2. 메인 화면 (좌측 캘린더 / 우측 임박한 일정) -->
     <div id="main-app" class="hidden flex-col h-full">
-        <header class="p-4 bg-black border-b border-[#2f2f2f]"><div class="text-[#e50914] font-black text-2xl">NETCALENDAR</div></header>
-        <main class="flex-grow p-4"><div id="calendar" class="h-full"></div></main>
+        <!-- 헤더 -->
+        <header class="h-16 px-6 bg-[#0B0B0B] flex justify-between items-center shrink-0 border-b border-[#2f2f2f]">
+            <div class="text-[#e50914] font-black text-2xl tracking-tighter">NETCALENDAR</div>
+            <div id="user-info" class="flex items-center gap-3 text-sm font-bold text-gray-300"></div>
+        </header>
+
+        <!-- 콘텐츠 영역 (50:50 분할) -->
+        <main class="flex-grow flex flex-row overflow-hidden">
+            <!-- 좌측: 달력 (50%) -->
+            <div class="w-1/2 h-full p-6 border-r border-[#2f2f2f] overflow-y-auto">
+                <div id="calendar" class="h-full min-h-[600px]"></div>
+            </div>
+
+            <!-- 우측: 임박한 일정 (50%) -->
+            <div class="w-1/2 h-full bg-[#181818] p-8 overflow-y-auto">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-2xl font-bold">임박한 일정</h2>
+                    <span class="bg-[#e50914] text-xs font-bold px-2 py-1 rounded">UPCOMING</span>
+                </div>
+                <div id="upcoming-list" class="flex flex-col gap-4">
+                    <!-- 일정 카드가 이곳에 추가됩니다 -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 3. 모달: 새 일정 등록 -->
+    <div id="add-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/80 backdrop-blur-sm transition-opacity">
+        <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-md p-6 border border-[#2f2f2f]">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">새 일정 등록</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <input type="text" id="ev-title" class="net-input text-lg font-bold" placeholder="일정 제목 (예: 주간회의)" required>
+                
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-400 mb-1">시작</label>
+                        <input type="datetime-local" id="ev-start" class="net-input" required>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-400 mb-1">종료</label>
+                        <input type="datetime-local" id="ev-end" class="net-input" required>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer text-sm">
+                        <input type="checkbox" id="ev-allday" class="w-4 h-4 accent-[#e50914]"> 종일(All-Day)
+                    </label>
+                </div>
+
+                <select id="ev-category" class="net-input cursor-pointer">
+                    <option value="회사 일정">🏢 회사 일정</option>
+                    <option value="개인 일정">👤 개인 일정</option>
+                    <option value="블로그 협찬">📝 블로그 협찬</option>
+                </select>
+            </div>
+            
+            <div class="mt-8 flex gap-3">
+                <button onclick="saveEvent()" id="btn-save" class="flex-1 bg-[#e50914] hover:bg-[#b1060e] text-white font-bold py-3 rounded transition">등록하기</button>
+                <button onclick="closeModal()" class="flex-1 bg-transparent border border-gray-600 hover:border-white text-white font-bold py-3 rounded transition">취소</button>
+            </div>
+        </div>
     </div>
 
     <script>
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyEp13vz9Ey2JtP_iuNqoeZPnAySDUFiy3OT3Afu3YEz-i4knIXYRYQn4hnRF7wEr4g/exec";
+        let currentUser = null;
+        let calendar = null;
+        let allEventsData = [];
 
+        // JWT 디코딩 (구글 로그인 정보 추출)
+        function decodeJwt(token) {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            return JSON.parse(jsonPayload);
+        }
+
+        // 로그인 성공 처리
         function handleCredentialResponse(response) {
-            // 로그인 성공 시 화면 전환
+            currentUser = decodeJwt(response.credential);
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
             document.getElementById('main-app').classList.add('flex');
+            
+            document.getElementById('user-info').innerHTML = `
+                <img src="${currentUser.picture}" class="w-8 h-8 rounded border border-gray-600" referrerpolicy="no-referrer">
+                <span>${currentUser.name}</span>
+            `;
             initCalendar();
         }
 
+        // 캘린더 세팅
         function initCalendar() {
             const calendarEl = document.getElementById('calendar');
-            const calendar = new FullCalendar.Calendar(calendarEl, {
+            calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'ko',
+                headerToolbar: {
+                    left: 'prev,next',
+                    center: 'title',
+                    right: 'today'
+                },
+                selectable: true, // 드래그 & 클릭 가능
+                select: function(info) {
+                    openAddModal(info.startStr, info.endStr, info.allDay);
+                    calendar.unselect();
+                },
                 events: function(info, successCallback, failureCallback) {
-                    // 앱스클립트(API)로 데이터 요청
-                    const fetchUrl = `${GAS_API_URL}?action=getEvents&start=${info.startStr}&end=${info.endStr}`;
-                    fetch(fetchUrl)
-                        .then(response => response.json())
-                        .then(data => successCallback(data))
-                        .catch(error => failureCallback(error));
+                    fetch(`${GAS_API_URL}?action=getEvents&start=${info.startStr}&end=${info.endStr}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            allEventsData = data; 
+                            renderUpcomingEvents(data); // 우측 임박한 일정 업데이트
+                            successCallback(data);
+                        })
+                        .catch(err => failureCallback(err));
                 }
             });
             calendar.render();
+        }
+
+        // 우측 임박한 일정 렌더링
+        function renderUpcomingEvents(events) {
+            const list = document.getElementById('upcoming-list');
+            const now = new Date();
+            now.setHours(0,0,0,0);
+
+            // 오늘 이후 일정만 필터링 후 날짜순 정렬
+            const upcoming = events
+                .filter(ev => new Date(ev.start) >= now)
+                .sort((a, b) => new Date(a.start) - new Date(b.start))
+                .slice(0, 6); // 최대 6개만 표시
+
+            if(upcoming.length === 0) {
+                list.innerHTML = '<div class="text-gray-500 py-10 text-center">예정된 일정이 없습니다.</div>';
+                return;
+            }
+
+            list.innerHTML = upcoming.map(ev => {
+                const dateObj = new Date(ev.start);
+                const diffTime = Math.abs(dateObj - now);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const dDayText = diffDays === 0 ? 'D-Day' : `D-${diffDays}`;
+                const dateStr = dateObj.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
+
+                return `
+                    <div class="bg-[#222] rounded-md p-5 border-l-4 hover:bg-[#333] transition" style="border-left-color: ${ev.backgroundColor}">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold px-2 py-1 rounded bg-[#333] text-white">${dDayText}</span>
+                            <span class="text-xs text-gray-400">${dateStr}</span>
+                        </div>
+                        <h4 class="font-bold text-lg text-white mb-1 truncate">${ev.title}</h4>
+                        <div class="text-sm text-gray-400 flex justify-between">
+                            <span>${ev.extendedProps.category}</span>
+                            <span>👤 ${ev.extendedProps.author}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 모달 열기/닫기
+        function openAddModal(start, end, allDay) {
+            document.getElementById('add-modal').classList.remove('hidden');
+            document.getElementById('ev-title').value = '';
+            document.getElementById('ev-allday').checked = allDay;
+            
+            if(allDay) {
+                document.getElementById('ev-start').value = start + 'T09:00';
+                let endDate = new Date(end);
+                endDate.setDate(endDate.getDate() - 1); // FullCalendar 종일 표기 보정
+                document.getElementById('ev-end').value = endDate.toISOString().split('T')[0] + 'T18:00';
+            } else {
+                document.getElementById('ev-start').value = start.slice(0, 16);
+                document.getElementById('ev-end').value = end.slice(0, 16);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('add-modal').classList.add('hidden');
+        }
+
+        // 일정 저장 (API 전송)
+        function saveEvent() {
+            const title = document.getElementById('ev-title').value;
+            const start = document.getElementById('ev-start').value;
+            const end = document.getElementById('ev-end').value;
+            if(!title || !start || !end) return alert("제목과 날짜를 입력해주세요.");
+
+            const btn = document.getElementById('btn-save');
+            btn.innerText = "등록 중...";
+            btn.disabled = true;
+
+            const payload = {
+                action: 'addEvent',
+                title: title,
+                start: start,
+                end: end,
+                allDay: document.getElementById('ev-allday').checked,
+                category: document.getElementById('ev-category').value,
+                author: currentUser.name // 구글 로그인 이름 저장
+            };
+
+            // GAS로 POST 전송
+            fetch(GAS_API_URL, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(res => {
+                if(res.success) {
+                    closeModal();
+                    calendar.refetchEvents(); // 달력 및 우측 리스트 새로고침
+                } else {
+                    alert("오류: " + res.error);
+                }
+            })
+            .catch(err => alert("네트워크 오류 발생"))
+            .finally(() => {
+                btn.innerText = "등록하기";
+                btn.disabled = false;
+            });
         }
     </script>
 </body>
