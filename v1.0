@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>NetCalendar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>body { background-color: #141414; color: #fff; overflow: hidden; }</style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- 로그인 화면 -->
+    <div id="login-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#141414]">
+        <h1 class="text-5xl font-black text-[#e50914] mb-8">NetCalendar</h1>
+        <div id="g_id_onload"
+             data-client_id="478451428995-2crtpdco8bt3mnm9vp19upqabeqbtj89.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-theme="filled_black" data-size="large"></div>
+    </div>
+
+    <!-- 캘린더 화면 -->
+    <div id="main-app" class="hidden flex-col h-full">
+        <header class="p-4 bg-black border-b border-[#2f2f2f]"><div class="text-[#e50914] font-black text-2xl">NETCALENDAR</div></header>
+        <main class="flex-grow p-4"><div id="calendar" class="h-full"></div></main>
+    </div>
+
+    <script>
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyEp13vz9Ey2JtP_iuNqoeZPnAySDUFiy3OT3Afu3YEz-i4knIXYRYQn4hnRF7wEr4g/exec";
+
+        function handleCredentialResponse(response) {
+            // 로그인 성공 시 화면 전환
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('flex');
+            initCalendar();
+        }
+
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'ko',
+                events: function(info, successCallback, failureCallback) {
+                    // 앱스클립트(API)로 데이터 요청
+                    const fetchUrl = `${GAS_API_URL}?action=getEvents&start=${info.startStr}&end=${info.endStr}`;
+                    fetch(fetchUrl)
+                        .then(response => response.json())
+                        .then(data => successCallback(data))
+                        .catch(error => failureCallback(error));
+                }
+            });
+            calendar.render();
+        }
+    </script>
+</body>
+</html>
