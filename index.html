@@ -205,24 +205,38 @@
         }
 
         // 캘린더 초기화
-        function initCalendar() {
-            var calendarEl = document.getElementById('calendar');
+     function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'ko',
-                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth'
+                },
                 selectable: true,
-                
-                // 날짜 클릭 또는 드래그 시 모달 오픈
                 select: function(info) {
                     openAddModal(info.startStr, info.endStr, info.allDay);
                     calendar.unselect();
                 },
-                
-                // 이벤트 클릭 시 상세 보기
-                eventClick: function(info) {
-                    openDetailsModal(info.event);
-                },
+                events: function(info, successCallback, failureCallback) {
+                    // 💡 핵심 해결책: 끝에 &t=현재시간 을 붙여 무조건 새로고침된 데이터를 받아오게 함
+                    const fetchUrl = `${GAS_API_URL}?action=getEvents&start=${info.startStr}&end=${info.endStr}&t=${new Date().getTime()}`;
+                    
+                    // 💡 cache: 'no-store' 옵션 추가
+                    fetch(fetchUrl, { cache: 'no-store' })
+                        .then(res => res.json())
+                        .then(data => {
+                            allEventsData = data; 
+                            renderUpcomingEvents(data); // 우측 임박한 일정 업데이트
+                            successCallback(data);
+                        })
+                        .catch(err => failureCallback(err));
+                }
+            });
+            calendar.render();
+        }
 
                 // API 데이터 연동
                 events: function(info, successCallback, failureCallback) {
