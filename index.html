@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Netflix Style Calendar</title>
+    <title>NetCalendar</title>
 
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
@@ -17,7 +17,7 @@
             theme: {
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: { netRed: '#e50914', netBg: '#141414', netCard: '#2f2f2f' }
+                    colors: { netRed: '#e50914', netBg: '#141414', netCard: '#2a2a2a' }
                 }
             }
         }
@@ -29,26 +29,72 @@
         ::-webkit-scrollbar-track { background: #141414; }
         ::-webkit-scrollbar-thumb { background: #404040; border-radius: 4px; }
 
+        /* ===== FullCalendar 다크 테마 ===== */
         :root {
             --fc-page-bg-color: #141414;
-            --fc-border-color: #333333;
+            --fc-border-color: #2f2f2f;
+            --fc-neutral-bg-color: #1c1c1c;
+            --fc-button-text-color: #ffffff;
             --fc-button-bg-color: #2f2f2f;
+            --fc-button-border-color: #2f2f2f;
             --fc-button-hover-bg-color: #404040;
+            --fc-button-hover-border-color: #404040;
             --fc-button-active-bg-color: #e50914;
-            --fc-today-bg-color: rgba(229, 9, 20, 0.15);
+            --fc-button-active-border-color: #e50914;
+            --fc-today-bg-color: rgba(229, 9, 20, 0.18);
+            --fc-now-indicator-color: #e50914;
+            --fc-more-link-bg-color: transparent;
         }
-        .fc-theme-standard td, .fc-theme-standard th { border-color: #2f2f2f; }
-        .fc .fc-toolbar-title { font-size: 1.25rem; font-weight: 700; }
-        .fc .fc-daygrid-day-number { padding: 6px; font-weight: 500; }
-        .fc .fc-daygrid-day { cursor: pointer; }
-        .fc-h-event { cursor: pointer; border: none; }
-        .fc-h-event:hover { filter: brightness(1.2); }
-        @media (min-width: 768px) { .fc .fc-toolbar-title { font-size: 1.5rem; } }
+        .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 1rem; }
+        .fc .fc-toolbar-title { font-size: 1.5rem; font-weight: 700; }
+        .fc .fc-button { border-radius: 4px; font-weight: 600; text-transform: none; box-shadow: none !important; }
+        .fc .fc-button-group > .fc-button { border-radius: 0; }
+        .fc .fc-button-group > .fc-button:first-child { border-radius: 4px 0 0 4px; }
+        .fc .fc-button-group > .fc-button:last-child { border-radius: 0 4px 4px 0; }
+        .fc .fc-button-group > .fc-button:only-child { border-radius: 4px; }
+        .fc .fc-button-primary:disabled { background-color: #2f2f2f; border-color: #2f2f2f; opacity: .7; }
 
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #2f2f2f; }
+        .fc-theme-standard .fc-scrollgrid { border-color: #2f2f2f; }
+        .fc .fc-col-header-cell-cushion { font-weight: 700; padding: 8px 4px; color: #fff; }
+        .fc .fc-daygrid-day { cursor: pointer; }
+        .fc .fc-daygrid-day-top { flex-direction: row; justify-content: flex-end; }
+        .fc .fc-daygrid-day-number { padding: 8px 10px; font-weight: 600; color: #fff; }
+        .fc .fc-day-other .fc-daygrid-day-number { color: #fff; opacity: .35; }
+
+        /* 이벤트: 시간 있는 일정 = 점 + 시간 + 굵은 제목 / 종일·기간 일정 = 색 막대 */
+        .fc .fc-event { cursor: pointer; border: none; }
+        .fc .fc-daygrid-block-event { border-radius: 3px; padding: 1px 6px; }
+        .fc .fc-daygrid-dot-event { padding: 2px 4px; }
+        .fc .fc-daygrid-dot-event:hover { background: rgba(255,255,255,.08); }
+        .fc .fc-daygrid-dot-event .fc-event-title { font-weight: 700; color: #fff; }
+        .fc .fc-daygrid-dot-event .fc-event-time { font-weight: 500; color: #ddd; }
+        .fc .fc-event-main { color: #fff; }
+        .fc .fc-daygrid-event { font-size: .8rem; }
+        .fc .fc-daygrid-more-link { color: #aaa; font-size: .75rem; padding: 0 4px; }
+        .fc .fc-popover { background: #222; border-color: #333; }
+        .fc .fc-popover-header { background: #2f2f2f; }
+        .fc .fc-timegrid-slot-label-cushion, .fc .fc-timegrid-axis-cushion { color: #aaa; font-size: .75rem; }
+
+        /* 모바일 전용: 날짜 아래 색 점 + 선택한 날짜 강조 */
+        .nc-dots { display: flex; gap: 3px; justify-content: center; position: absolute; left: 0; right: 0; bottom: 5px; }
+        .nc-dots span { width: 6px; height: 6px; border-radius: 50%; display: block; }
+        .fc .fc-daygrid-day.nc-selected { box-shadow: inset 0 0 0 2px #e50914; }
+
+        @media (max-width: 767px) {
+            .fc .fc-toolbar.fc-header-toolbar { margin-bottom: .6rem; }
+            .fc .fc-toolbar-title { font-size: 1.1rem; }
+            .fc .fc-button { padding: .35rem .6rem; font-size: .8rem; }
+            .fc .fc-col-header-cell-cushion { font-size: .75rem; padding: 4px 0; }
+            .fc .fc-daygrid-day-frame { min-height: 54px; }
+            .fc .fc-daygrid-day-top { justify-content: center; }
+            .fc .fc-daygrid-day-number { padding: 5px 0; font-size: .85rem; }
+        }
+
+        /* 입력 / 모달 */
         .net-input { background-color: #333; border: 1px solid #404040; color: white; border-radius: 4px; padding: 0.75rem 1rem; width: 100%; outline: none; }
         .net-input:focus { border-color: #e50914; }
         .net-input::-webkit-calendar-picker-indicator { filter: invert(1); }
-
         .modal-overlay { backdrop-filter: blur(5px); background-color: rgba(0, 0, 0, 0.75); transition: opacity 0.3s ease; }
     </style>
 </head>
@@ -69,31 +115,40 @@
 
     <!-- 2. 메인 앱 -->
     <div id="main-app" class="hidden flex-col h-[100dvh]">
-        <header class="w-full bg-black py-3 px-4 md:py-4 md:px-8 flex justify-between items-center border-b border-[#2f2f2f] shrink-0">
-            <div class="text-netRed font-black text-2xl md:text-3xl tracking-tighter uppercase">NetCalendar</div>
-            <div id="user-profile" class="flex items-center gap-3 text-sm font-bold text-gray-300"></div>
+        <header class="w-full bg-black h-14 px-4 md:px-6 flex justify-between items-center border-b border-[#2f2f2f] shrink-0">
+            <div class="text-netRed font-black text-2xl tracking-tighter uppercase">NetCalendar</div>
+            <div id="user-profile" class="relative"></div>
         </header>
 
-        <!-- 모바일: 세로 스택(전체 스크롤) / 데스크톱: 좌우 분할 -->
-        <main class="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-            <div class="w-full md:w-1/2 md:h-full p-3 md:p-8 md:border-r border-[#2f2f2f] md:overflow-y-auto">
-                <div id="calendar" class="w-full"></div>
-            </div>
+        <!-- 모바일: 세로(캘린더 → 선택한 날 → 임박한 일정) / 데스크톱: 좌 70% · 우 30% -->
+        <main class="flex-1 min-h-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+            <section class="w-full md:w-[70%] md:h-full p-3 md:p-5 md:overflow-hidden">
+                <div id="calendar" class="w-full md:h-full"></div>
+            </section>
 
-            <div class="w-full md:w-1/2 md:h-full bg-[#181818] p-4 md:p-8 flex flex-col">
-                <div class="flex items-center justify-between mb-5 shrink-0 border-b border-[#2f2f2f] pb-4">
-                    <h2 class="text-xl md:text-2xl font-bold">임박한 일정 <i class="fa-solid fa-fire text-netRed ml-1"></i></h2>
-                    <span class="bg-netRed text-white text-xs font-bold px-3 py-1 rounded">UPCOMING</span>
+            <aside class="w-full md:w-[30%] md:h-full bg-[#181818] md:border-l border-t md:border-t-0 border-[#2f2f2f] p-4 md:p-6 flex flex-col md:overflow-y-auto">
+                <!-- 모바일 전용: 선택한 날짜의 일정 -->
+                <div id="day-section" class="md:hidden mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 id="day-title" class="text-lg font-bold"></h2>
+                        <span id="day-count" class="text-xs text-gray-400"></span>
+                    </div>
+                    <div id="day-list" class="space-y-3"></div>
                 </div>
-                <div id="upcoming-list" class="md:flex-1 md:overflow-y-auto md:pr-4 space-y-4 pb-24">
+
+                <div class="flex items-center justify-between mb-4 shrink-0">
+                    <h2 class="text-lg md:text-xl font-bold">임박한 일정</h2>
+                    <i class="fa-regular fa-bell text-gray-300"></i>
+                </div>
+                <div id="upcoming-list" class="space-y-3 md:space-y-4 pb-24 md:pb-4">
                     <div class="text-gray-500 text-center py-10"><i class="fa-solid fa-spinner fa-spin mr-2"></i> 일정을 불러오는 중...</div>
                 </div>
-            </div>
+            </aside>
         </main>
 
-        <!-- 일정 추가 플로팅 버튼 -->
-        <button onclick="openAddModal(toDateStr(new Date()))" aria-label="일정 추가"
-                class="fixed bottom-5 right-5 w-14 h-14 rounded-full bg-netRed hover:bg-[#b1060e] text-white text-2xl shadow-xl z-40 flex items-center justify-center">
+        <!-- 모바일 전용 일정 추가 버튼 -->
+        <button onclick="openAddModal(selectedDate)" aria-label="일정 추가"
+                class="md:hidden fixed bottom-5 right-5 w-14 h-14 rounded-full bg-netRed hover:bg-[#b1060e] text-white text-2xl shadow-xl z-40 flex items-center justify-center">
             <i class="fa-solid fa-plus"></i>
         </button>
     </div>
@@ -171,27 +226,39 @@
 
     <script>
         // ===== 설정 =====
-        // Apps Script '웹 앱' 배포 URL (끝이 /exec). 코드 수정 후엔 "새 버전"으로 재배포해야 같은 URL에 반영됩니다.
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyEp13vz9Ey2JtP_iuNqoeZPnAySDUFiy3OT3Afu3YEz-i4knIXYRYQn4hnRF7wEr4g/exec";
-        // Google Cloud Console의 OAuth 클라이언트 ID (공개되어도 되는 값). Code.gs 의 CLIENT_ID 와 동일해야 함.
         const CRED_KEY = 'nc_credential';
+
+        // 카테고리별 색상/짧은 이름 (서버 수정 없이 여기서만 바꾸면 됩니다)
+        const CATEGORY_STYLE = {
+            '회사 일정':   { color: '#2d7ff9', short: '회사' },
+            '개인 일정':   { color: '#22c55e', short: '개인' },
+            '블로그 협찬': { color: '#9b59b6', short: '블로그' }
+        };
+        const styleOf = cat => CATEGORY_STYLE[cat] || { color: '#808080', short: cat || '기타' };
 
         let currentUser = null;
         let idToken = null;
         let calendar = null;
         let upcomingEvents = [];
+        let dayEvents = [];
         let appStarted = false;
+        let selectedDate = null; // 모바일에서 선택한 날짜 'YYYY-MM-DD'
+
+        const mq = window.matchMedia('(max-width: 767px)');
+        const isMobile = () => mq.matches;
 
         // ===== 유틸 =====
         const pad = n => String(n).padStart(2, '0');
         const toDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const toLocalInput = d => `${toDateStr(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+        selectedDate = toDateStr(new Date());
 
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
-        // 'YYYY-MM-DD' 는 로컬 자정으로, 그 외는 ISO 로 파싱 (타임존 밀림 방지)
         function parseLocal(str) {
             if (!str) return null;
             if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
@@ -206,12 +273,12 @@
             return JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
         }
 
-        // ===== API (모든 요청 POST + 토큰 동봉) =====
+        // ===== API =====
         async function api(action, payload = {}) {
             const res = await fetch(GAS_API_URL, {
                 method: 'POST',
                 redirect: 'follow',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // preflight 회피
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action, idToken, ...payload })
             });
             const json = await res.json();
@@ -227,7 +294,6 @@
             let user;
             try { user = decodeJwt(credential); } catch (e) { return false; }
             if (!user.exp || user.exp * 1000 < Date.now()) return false;
-
             currentUser = user;
             idToken = credential;
             localStorage.setItem(CRED_KEY, credential);
@@ -235,9 +301,7 @@
             return true;
         }
 
-        function handleCredentialResponse(response) {
-            startSession(response.credential);
-        }
+        function handleCredentialResponse(response) { startSession(response.credential); }
 
         function logout(message) {
             localStorage.removeItem(CRED_KEY);
@@ -257,10 +321,20 @@
             main.classList.add('flex');
 
             document.getElementById('user-profile').innerHTML = `
-                <img src="${escapeHtml(currentUser.picture || '')}" class="w-8 h-8 rounded border border-gray-600" referrerpolicy="no-referrer" alt="">
-                <span class="hidden sm:inline">${escapeHtml(currentUser.name)}</span>
-                <button onclick="logout()" class="text-xs text-gray-400 hover:text-white border border-gray-600 rounded px-2 py-1">로그아웃</button>
-            `;
+                <button id="profile-btn" class="w-8 h-8 rounded-md bg-[#3a3f4b] overflow-hidden flex items-center justify-center text-gray-200" aria-label="내 계정">
+                    ${currentUser.picture
+                        ? `<img src="${escapeHtml(currentUser.picture)}" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="">`
+                        : '<i class="fa-solid fa-user"></i>'}
+                </button>
+                <div id="profile-menu" class="hidden absolute right-0 mt-2 w-56 bg-[#222] border border-[#333] rounded-lg shadow-xl p-3 z-50">
+                    <p class="font-bold text-sm truncate">${escapeHtml(currentUser.name)}</p>
+                    <p class="text-xs text-gray-400 truncate mb-3">${escapeHtml(currentUser.email || '')}</p>
+                    <button onclick="logout()" class="w-full text-sm border border-gray-600 hover:border-white rounded py-2 transition">로그아웃</button>
+                </div>`;
+            document.getElementById('profile-btn').addEventListener('click', e => {
+                e.stopPropagation();
+                document.getElementById('profile-menu').classList.toggle('hidden');
+            });
 
             initCalendar();
             loadUpcoming();
@@ -274,59 +348,165 @@
                 el.classList.remove('hidden');
                 sessionStorage.removeItem('nc_login_msg');
             }
-            // 저장된 토큰이 아직 유효하면 바로 입장
             const saved = localStorage.getItem(CRED_KEY);
             if (saved && !startSession(saved)) localStorage.removeItem(CRED_KEY);
         });
 
         // ===== 캘린더 =====
+        const TOOLBAR_DESKTOP = { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' };
+        const TOOLBAR_MOBILE = { left: 'prev,next', center: 'title', right: 'today' };
+
+        function applyStyle(ev) {
+            const st = styleOf(ev.extendedProps && ev.extendedProps.category);
+            return { ...ev, backgroundColor: st.color, borderColor: st.color };
+        }
+
         function initCalendar() {
+            const m = isMobile();
             calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
                 initialView: 'dayGridMonth',
                 locale: 'ko',
-                height: 'auto',
-                fixedWeekCount: false,
-                dayMaxEvents: 3,
-                headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
-                // 모바일에서는 길게 눌러야 select 가 동작하므로, 탭으로 동작하는 dateClick 사용
-                dateClick: info => openAddModal(info.dateStr),
+                height: m ? 'auto' : '100%',
+                fixedWeekCount: !m,
+                dayMaxEvents: !m,
+                eventDisplay: m ? 'none' : 'auto',
+                nowIndicator: true,
+                scrollTime: '08:00:00',
+                headerToolbar: m ? TOOLBAR_MOBILE : TOOLBAR_DESKTOP,
+                buttonText: { today: 'Today', month: 'Month', week: 'Week', day: 'Day' },
+                allDayText: '종일',
+                moreLinkText: n => `+${n}개`,
+                eventTimeFormat: { hour: 'numeric', minute: '2-digit', omitZeroMinute: true, meridiem: 'short' },
+
+                dateClick: info => {
+                    if (isMobile()) {
+                        // 모바일: 탭 → 그 날짜의 일정 보기 (추가는 + 버튼)
+                        selectedDate = info.dateStr.slice(0, 10);
+                        highlightSelected();
+                        renderDayAgenda();
+                    } else {
+                        openAddModal(info.dateStr, info.allDay);
+                    }
+                },
                 eventClick: info => {
                     info.jsEvent.preventDefault();
-                    openDetailsModal(normalize({
-                        title: info.event.title,
-                        allDay: info.event.allDay,
-                        start: info.event.start,
-                        end: info.event.end,
-                        backgroundColor: info.event.backgroundColor,
-                        extendedProps: info.event.extendedProps
-                    }));
+                    openDetailsModal(fcToView(info.event));
                 },
+                datesSet: info => {
+                    if (!isMobile()) return;
+                    const cs = info.view.currentStart, ce = info.view.currentEnd;
+                    const sel = parseLocal(selectedDate);
+                    if (sel < cs || sel >= ce) {
+                        const t = new Date();
+                        selectedDate = (t >= cs && t < ce) ? toDateStr(t) : toDateStr(cs);
+                    }
+                    highlightSelected();
+                    renderDayAgenda();
+                },
+                eventsSet: () => { renderMobileDots(); renderDayAgenda(); },
                 events: (info, success, failure) => {
                     api('getEvents', { start: info.startStr, end: info.endStr })
-                        .then(r => success(r.events))
+                        .then(r => success(r.events.map(applyStyle)))
                         .catch(err => { console.error(err); failure(err); });
                 }
             });
             calendar.render();
         }
 
-        // 서버/FullCalendar 이벤트를 화면용 객체로 통일
+        // 화면 크기가 바뀌면(회전 등) 레이아웃 재적용
+        mq.addEventListener('change', () => {
+            if (!calendar) return;
+            const m = isMobile();
+            calendar.setOption('headerToolbar', m ? TOOLBAR_MOBILE : TOOLBAR_DESKTOP);
+            calendar.setOption('eventDisplay', m ? 'none' : 'auto');
+            calendar.setOption('height', m ? 'auto' : '100%');
+            calendar.setOption('fixedWeekCount', !m);
+            calendar.setOption('dayMaxEvents', !m);
+            if (m && calendar.view.type !== 'dayGridMonth') calendar.changeView('dayGridMonth');
+            renderMobileDots();
+            highlightSelected();
+            renderDayAgenda();
+        });
+
+        // 모바일: 날짜 칸 아래에 일정 색 점 표시
+        function renderMobileDots() {
+            document.querySelectorAll('.nc-dots').forEach(n => n.remove());
+            if (!isMobile() || !calendar) return;
+            const map = {};
+            calendar.getEvents().forEach(ev => {
+                if (!ev.start) return;
+                const color = styleOf(ev.extendedProps.category).color;
+                const end = ev.end || ev.start;
+                let d = startOfDay(ev.start);
+                do {
+                    (map[toDateStr(d)] = map[toDateStr(d)] || []).push(color);
+                    d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+                } while (d < end);
+            });
+            Object.entries(map).forEach(([date, colors]) => {
+                const frame = document.querySelector(`.fc-daygrid-day[data-date="${date}"] .fc-daygrid-day-frame`);
+                if (!frame) return;
+                const box = document.createElement('div');
+                box.className = 'nc-dots';
+                colors.slice(0, 4).forEach(c => {
+                    const s = document.createElement('span');
+                    s.style.background = c;
+                    box.appendChild(s);
+                });
+                frame.appendChild(box);
+            });
+            highlightSelected();
+        }
+
+        function highlightSelected() {
+            document.querySelectorAll('.nc-selected').forEach(n => n.classList.remove('nc-selected'));
+            if (!isMobile()) return;
+            const td = document.querySelector(`.fc-daygrid-day[data-date="${selectedDate}"]`);
+            if (td) td.classList.add('nc-selected');
+        }
+
+        // ===== 데이터 변환 =====
         function normalize(ev) {
             const props = ev.extendedProps || {};
             const start = ev.start instanceof Date ? ev.start : parseLocal(ev.start);
             let end = ev.end instanceof Date ? ev.end : parseLocal(ev.end);
             if (!end) end = start;
+            const category = props.category || '기타';
             return {
                 title: ev.title,
                 allDay: !!ev.allDay,
                 start, end,
-                color: ev.backgroundColor || '#808080',
-                category: props.category || '기타',
+                color: styleOf(category).color,
+                category,
                 author: props.author || '익명'
             };
         }
+        const fcToView = ev => normalize({ title: ev.title, allDay: ev.allDay, start: ev.start, end: ev.end, extendedProps: ev.extendedProps });
 
-        // ===== 임박한 일정 (현재 보고 있는 달과 무관하게 오늘~90일) =====
+        // ===== 카드 UI (임박한 일정 / 선택한 날짜 공용) =====
+        function badgeHtml(text, red) {
+            const cls = red ? 'bg-netRed text-white' : 'bg-[#2d3340] text-gray-300';
+            return `<span class="text-xs font-bold px-2 py-1 rounded ${cls}">${escapeHtml(text)}</span>`;
+        }
+
+        function cardHtml(ev, cls, idx, badge, rightText) {
+            const st = styleOf(ev.category);
+            return `
+                <div class="${cls} bg-[#2a2a2a] hover:bg-[#333] rounded-md p-4 border-l-4 cursor-pointer transition shadow-md"
+                     style="border-left-color: ${st.color}" data-index="${idx}">
+                    <div class="flex justify-between items-center mb-2">
+                        ${badge}
+                        <span class="text-xs text-gray-400">${escapeHtml(rightText)}</span>
+                    </div>
+                    <h4 class="font-bold text-lg text-white mb-2 truncate">${escapeHtml(ev.title)}</h4>
+                    <div class="flex items-center gap-4 text-sm text-gray-400">
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background-color: ${st.color}"></span>${escapeHtml(st.short)}</span>
+                        <span class="flex items-center gap-1"><i class="fa-solid fa-user text-xs"></i>${escapeHtml(ev.author)}</span>
+                    </div>
+                </div>`;
+        }
+
+        // ===== 임박한 일정 (오늘~90일) =====
         async function loadUpcoming() {
             const list = document.getElementById('upcoming-list');
             try {
@@ -352,28 +532,48 @@
             const today = startOfDay(new Date());
             list.innerHTML = upcomingEvents.map((ev, i) => {
                 const diff = Math.round((startOfDay(ev.start) - today) / 86400000);
-                const dDayText = diff <= 0 ? (diff < 0 ? '진행중' : 'D-Day') : `D-${diff}`;
-                const dDayStyle = diff <= 3 ? 'bg-netRed text-white' : 'bg-[#333] text-gray-300';
-                const dateText = ev.start.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
-                return `
-                    <div class="upcoming-item bg-[#222] rounded-lg p-4 md:p-5 border-l-4 hover:bg-[#2a2a2a] transition cursor-pointer shadow-lg group"
-                         style="border-left-color: ${escapeHtml(ev.color)}" data-index="${i}">
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="text-xs font-bold px-2 py-1 rounded ${dDayStyle}">${dDayText}</span>
-                            <span class="text-sm text-gray-400 font-medium">${escapeHtml(dateText)}</span>
-                        </div>
-                        <h4 class="font-bold text-lg md:text-xl text-white mb-2 truncate group-hover:text-netRed transition-colors">${escapeHtml(ev.title)}</h4>
-                        <div class="flex justify-between text-sm text-gray-400">
-                            <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background-color: ${escapeHtml(ev.color)}"></span>${escapeHtml(ev.category)}</span>
-                            <span><i class="fa-solid fa-user text-xs mr-1"></i>${escapeHtml(ev.author)}</span>
-                        </div>
-                    </div>`;
+                const text = diff < 0 ? '진행중' : (diff === 0 ? 'D-Day' : `D-${diff}`);
+                const dateText = ev.start.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' });
+                return cardHtml(ev, 'upcoming-item', i, badgeHtml(text, diff <= 3), dateText);
             }).join('');
         }
 
+        // ===== 모바일: 선택한 날짜의 일정 =====
+        function renderDayAgenda() {
+            if (!calendar || !isMobile()) return;
+            const day = parseLocal(selectedDate);
+            const next = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+
+            dayEvents = calendar.getEvents().filter(ev => {
+                if (!ev.start) return false;
+                const s = ev.start, e = ev.end || ev.start;
+                return s < next && (e > day || (e.getTime() === s.getTime() && s >= day));
+            }).map(fcToView).sort((a, b) => a.start - b.start);
+
+            const todayStr = toDateStr(new Date());
+            document.getElementById('day-title').textContent =
+                day.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }) + (selectedDate === todayStr ? ' · 오늘' : '');
+            document.getElementById('day-count').textContent = dayEvents.length ? `${dayEvents.length}개의 일정` : '';
+
+            const list = document.getElementById('day-list');
+            if (!dayEvents.length) {
+                list.innerHTML = '<div class="text-gray-500 text-center py-6 bg-[#222] rounded-lg border border-[#333] text-sm">일정이 없습니다. 오른쪽 아래 + 버튼으로 추가하세요.</div>';
+                return;
+            }
+            list.innerHTML = dayEvents.map((ev, i) => {
+                const label = ev.allDay ? '종일' : ev.start.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+                return cardHtml(ev, 'agenda-item', i, badgeHtml(label, false), '');
+            }).join('');
+        }
+
+        // ===== 클릭 처리 =====
         document.addEventListener('click', e => {
-            const item = e.target.closest('.upcoming-item');
-            if (item) openDetailsModal(upcomingEvents[Number(item.dataset.index)]);
+            const up = e.target.closest('.upcoming-item');
+            if (up) return openDetailsModal(upcomingEvents[Number(up.dataset.index)]);
+            const ag = e.target.closest('.agenda-item');
+            if (ag) return openDetailsModal(dayEvents[Number(ag.dataset.index)]);
+            const menu = document.getElementById('profile-menu');
+            if (menu && !e.target.closest('#profile-menu')) menu.classList.add('hidden');
         });
 
         // ===== 모달 =====
@@ -404,7 +604,6 @@
             });
         });
 
-        // 종일 여부에 따라 입력창 타입 전환 (date <-> datetime-local)
         function applyAllDayMode() {
             const allDay = document.getElementById('ev-allday').checked;
             const s = document.getElementById('ev-start');
@@ -416,12 +615,20 @@
             e.value = allDay ? ed : `${ed}T10:00`;
         }
 
-        function openAddModal(dateStr) {
-            const day = (dateStr || toDateStr(new Date())).slice(0, 10);
-            document.getElementById('ev-allday').checked = true;
-            document.getElementById('ev-start').value = day;
-            document.getElementById('ev-end').value = day;
-            applyAllDayMode();
+        // dateStr: 'YYYY-MM-DD' 또는 시간 포함 문자열(주/일 보기에서 시간 칸 클릭)
+        function openAddModal(dateStr, allDay = true) {
+            const s = document.getElementById('ev-start');
+            const e = document.getElementById('ev-end');
+            document.getElementById('ev-allday').checked = allDay;
+            s.type = e.type = allDay ? 'date' : 'datetime-local';
+            if (allDay) {
+                const day = (dateStr || toDateStr(new Date())).slice(0, 10);
+                s.value = e.value = day;
+            } else {
+                const start = new Date(dateStr);
+                s.value = toLocalInput(start);
+                e.value = toLocalInput(new Date(start.getTime() + 3600000));
+            }
             document.getElementById('ev-author').value = currentUser.name;
             openModal('add-modal');
         }
@@ -437,8 +644,8 @@
             const tOpt = { hour: '2-digit', minute: '2-digit' };
             let text;
             if (ev.allDay) {
-                const last = new Date(ev.end); last.setDate(last.getDate() - 1); // 종료일은 exclusive
-                text = toDateStr(last) === toDateStr(ev.start)
+                const last = new Date(ev.end); last.setDate(last.getDate() - 1);
+                text = toDateStr(last) <= toDateStr(ev.start)
                     ? `${ev.start.toLocaleDateString('ko-KR', dOpt)} · 종일`
                     : `${ev.start.toLocaleDateString('ko-KR', dOpt)} ~ ${last.toLocaleDateString('ko-KR', dOpt)} · 종일`;
             } else {
@@ -469,11 +676,11 @@
             let start, end;
             if (allDay) {
                 if (endVal < startVal) return showError('종료일이 시작일보다 빠릅니다.');
-                start = startVal; end = endVal; // 'YYYY-MM-DD' (종료일 포함, 서버가 +1일 처리)
+                start = startVal; end = endVal;
             } else {
                 const s = new Date(startVal), e = new Date(endVal);
                 if (e <= s) return showError('종료 시간이 시작 시간보다 늦어야 합니다.');
-                start = s.toISOString(); end = e.toISOString(); // 브라우저 로컬 시간 → 타임존 포함 ISO
+                start = s.toISOString(); end = e.toISOString();
             }
 
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
