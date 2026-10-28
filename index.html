@@ -4,14 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Netflix Style Calendar</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- FullCalendar JS -->
+
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    
-    <!-- Google Fonts & FontAwesome & Google Login -->
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -28,12 +24,11 @@
     </script>
 
     <style>
-        body { background-color: #141414; color: #ffffff; font-family: 'Inter', sans-serif; overflow: hidden; }
+        body { background-color: #141414; color: #ffffff; font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #141414; }
         ::-webkit-scrollbar-thumb { background: #404040; border-radius: 4px; }
-        
-        /* FullCalendar Netflix Dark Theme Overrides */
+
         :root {
             --fc-page-bg-color: #141414;
             --fc-border-color: #333333;
@@ -43,125 +38,130 @@
             --fc-today-bg-color: rgba(229, 9, 20, 0.15);
         }
         .fc-theme-standard td, .fc-theme-standard th { border-color: #2f2f2f; }
-        .fc .fc-toolbar-title { font-size: 1.5rem; font-weight: 700; }
-        .fc .fc-daygrid-day-number { padding: 8px; font-weight: 500; cursor: pointer; transition: color 0.2s; }
-        .fc .fc-daygrid-day-number:hover { color: #e50914; }
-        .fc-h-event { cursor: pointer; transition: transform 0.2s; border: none; }
-        .fc-h-event:hover { transform: scale(1.02); filter: brightness(1.2); }
+        .fc .fc-toolbar-title { font-size: 1.25rem; font-weight: 700; }
+        .fc .fc-daygrid-day-number { padding: 6px; font-weight: 500; }
+        .fc .fc-daygrid-day { cursor: pointer; }
+        .fc-h-event { cursor: pointer; border: none; }
+        .fc-h-event:hover { filter: brightness(1.2); }
+        @media (min-width: 768px) { .fc .fc-toolbar-title { font-size: 1.5rem; } }
 
-        /* Custom Inputs & Modals */
         .net-input { background-color: #333; border: 1px solid #404040; color: white; border-radius: 4px; padding: 0.75rem 1rem; width: 100%; outline: none; }
         .net-input:focus { border-color: #e50914; }
         .net-input::-webkit-calendar-picker-indicator { filter: invert(1); }
-        
+
         .modal-overlay { backdrop-filter: blur(5px); background-color: rgba(0, 0, 0, 0.75); transition: opacity 0.3s ease; }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body>
 
     <!-- 1. 로그인 화면 -->
-    <div id="login-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#141414] transition-opacity duration-500">
-        <h1 class="text-6xl font-black text-[#e50914] mb-2 tracking-tighter uppercase">NetCalendar</h1>
-        <p class="text-gray-400 mb-10 text-lg">팀 캘린더에 입장하려면 로그인하세요</p>
+    <div id="login-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#141414] transition-opacity duration-500 px-4 text-center">
+        <h1 class="text-4xl md:text-6xl font-black text-[#e50914] mb-2 tracking-tighter uppercase">NetCalendar</h1>
+        <p class="text-gray-400 mb-10 text-base md:text-lg">팀 캘린더에 입장하려면 로그인하세요</p>
         <div id="g_id_onload"
              data-client_id="478451428995-2crtpdco8bt3mnm9vp19upqabeqbtj89.apps.googleusercontent.com"
+             data-auto_select="true"
              data-callback="handleCredentialResponse">
         </div>
         <div class="g_id_signin" data-type="standard" data-theme="filled_black" data-size="large"></div>
+        <p id="login-error" class="text-red-400 text-sm mt-6 hidden"></p>
     </div>
 
-    <!-- 2. 메인 앱 화면 -->
-    <div id="main-app" class="hidden flex-col h-full">
-        <!-- 헤더 -->
-        <header class="w-full bg-black py-4 px-8 flex justify-between items-center border-b border-[#2f2f2f] shrink-0">
-            <div class="text-netRed font-black text-3xl tracking-tighter uppercase">NetCalendar</div>
+    <!-- 2. 메인 앱 -->
+    <div id="main-app" class="hidden flex-col h-[100dvh]">
+        <header class="w-full bg-black py-3 px-4 md:py-4 md:px-8 flex justify-between items-center border-b border-[#2f2f2f] shrink-0">
+            <div class="text-netRed font-black text-2xl md:text-3xl tracking-tighter uppercase">NetCalendar</div>
             <div id="user-profile" class="flex items-center gap-3 text-sm font-bold text-gray-300"></div>
         </header>
 
-        <!-- 좌우 분할 콘텐츠 -->
-        <main class="flex-grow flex flex-row overflow-hidden">
-            <!-- 좌측: 캘린더 (50%) -->
-            <div class="w-1/2 h-full p-8 border-r border-[#2f2f2f] overflow-y-auto">
-                <div id="calendar" class="w-full h-full min-h-[600px]"></div>
+        <!-- 모바일: 세로 스택(전체 스크롤) / 데스크톱: 좌우 분할 -->
+        <main class="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+            <div class="w-full md:w-1/2 md:h-full p-3 md:p-8 md:border-r border-[#2f2f2f] md:overflow-y-auto">
+                <div id="calendar" class="w-full"></div>
             </div>
 
-            <!-- 우측: 임박한 일정 (50%) -->
-            <div class="w-1/2 h-full bg-[#181818] p-8 flex flex-col">
-                <div class="flex items-center justify-between mb-8 shrink-0 border-b border-[#2f2f2f] pb-4">
-                    <h2 class="text-2xl font-bold">임박한 일정 <i class="fa-solid fa-fire text-netRed ml-1"></i></h2>
+            <div class="w-full md:w-1/2 md:h-full bg-[#181818] p-4 md:p-8 flex flex-col">
+                <div class="flex items-center justify-between mb-5 shrink-0 border-b border-[#2f2f2f] pb-4">
+                    <h2 class="text-xl md:text-2xl font-bold">임박한 일정 <i class="fa-solid fa-fire text-netRed ml-1"></i></h2>
                     <span class="bg-netRed text-white text-xs font-bold px-3 py-1 rounded">UPCOMING</span>
                 </div>
-                <div id="upcoming-list" class="flex-grow overflow-y-auto pr-4 space-y-4">
-                    <!-- 로딩 상태 표시 -->
+                <div id="upcoming-list" class="md:flex-1 md:overflow-y-auto md:pr-4 space-y-4 pb-24">
                     <div class="text-gray-500 text-center py-10"><i class="fa-solid fa-spinner fa-spin mr-2"></i> 일정을 불러오는 중...</div>
                 </div>
             </div>
         </main>
+
+        <!-- 일정 추가 플로팅 버튼 -->
+        <button onclick="openAddModal(toDateStr(new Date()))" aria-label="일정 추가"
+                class="fixed bottom-5 right-5 w-14 h-14 rounded-full bg-netRed hover:bg-[#b1060e] text-white text-2xl shadow-xl z-40 flex items-center justify-center">
+            <i class="fa-solid fa-plus"></i>
+        </button>
     </div>
 
     <!-- 3. 모달: 새 일정 등록 -->
     <div id="add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0">
-        <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-md border border-gray-700 overflow-hidden">
-            <div class="p-6 border-b border-[#2f2f2f] flex justify-between items-center bg-[#222]">
+        <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-md border border-gray-700 overflow-hidden max-h-[95dvh] overflow-y-auto">
+            <div class="p-5 border-b border-[#2f2f2f] flex justify-between items-center bg-[#222]">
                 <h3 class="text-xl font-bold">새 일정 등록</h3>
-                <button onclick="closeModal('add-modal')" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button onclick="closeModal('add-modal')" class="text-gray-400 hover:text-white" aria-label="닫기"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-            <div class="p-6 space-y-5">
-                <input type="text" id="ev-title" class="net-input text-lg font-bold" placeholder="일정 제목" required>
-                
-                <div class="flex gap-4">
-                    <div class="flex-1">
+            <div class="p-5 space-y-5">
+                <input type="text" id="ev-title" maxlength="100" class="net-input text-lg font-bold" placeholder="일정 제목">
+
+                <div class="flex gap-3">
+                    <div class="flex-1 min-w-0">
                         <label class="block text-xs text-gray-400 mb-1">시작</label>
-                        <input type="datetime-local" id="ev-start" class="net-input" required>
+                        <input type="datetime-local" id="ev-start" class="net-input">
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
                         <label class="block text-xs text-gray-400 mb-1">종료</label>
-                        <input type="datetime-local" id="ev-end" class="net-input" required>
+                        <input type="datetime-local" id="ev-end" class="net-input">
                     </div>
                 </div>
 
                 <label class="flex items-center gap-2 cursor-pointer w-max">
-                    <input type="checkbox" id="ev-allday" class="w-4 h-4 accent-netRed cursor-pointer">
+                    <input type="checkbox" id="ev-allday" class="w-4 h-4 accent-netRed cursor-pointer" onchange="applyAllDayMode()">
                     <span class="text-sm">종일(All-Day) 일정</span>
                 </label>
 
-                <div class="flex gap-4">
-                    <div class="flex-1">
+                <div class="flex gap-3">
+                    <div class="flex-1 min-w-0">
                         <input type="text" id="ev-author" class="net-input bg-[#222] text-gray-400 cursor-not-allowed" readonly>
                     </div>
-                    <div class="flex-1">
-                        <select id="ev-category" class="net-input cursor-pointer" required>
+                    <div class="flex-1 min-w-0">
+                        <select id="ev-category" class="net-input cursor-pointer">
                             <option value="회사 일정">🏢 회사 일정</option>
                             <option value="개인 일정">👤 개인 일정</option>
                             <option value="블로그 협찬">📝 블로그 협찬</option>
                         </select>
                     </div>
                 </div>
+                <p id="add-error" class="text-red-400 text-sm hidden"></p>
             </div>
-            <div class="p-6 pt-0 flex gap-3">
-                <button onclick="saveEvent()" id="btn-save" class="flex-1 bg-netRed hover:bg-[#b1060e] text-white font-bold py-3 rounded transition shadow-[0_4px_10px_rgba(229,9,20,0.3)]">등록하기</button>
+            <div class="p-5 pt-0 flex gap-3">
+                <button onclick="saveEvent()" id="btn-save" class="flex-1 bg-netRed hover:bg-[#b1060e] text-white font-bold py-3 rounded transition">등록하기</button>
                 <button onclick="closeModal('add-modal')" class="flex-1 bg-transparent border border-gray-500 hover:border-white text-white font-bold py-3 rounded transition">취소</button>
             </div>
         </div>
     </div>
 
-    <!-- 4. 모달: 일정 상세 보기 -->
+    <!-- 4. 모달: 일정 상세 -->
     <div id="details-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0">
         <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-sm overflow-hidden border border-gray-700">
-            <div class="h-32 w-full relative bg-[#2f2f2f] flex flex-col justify-end p-6" id="detail-cover">
-                <button onclick="closeModal('details-modal')" class="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full text-white hover:bg-white hover:text-black transition flex items-center justify-center z-10"><i class="fa-solid fa-xmark"></i></button>
+            <div class="h-32 w-full relative bg-[#2f2f2f] flex flex-col justify-end p-5" id="detail-cover">
+                <button onclick="closeModal('details-modal')" aria-label="닫기" class="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full text-white hover:bg-white hover:text-black transition flex items-center justify-center z-20"><i class="fa-solid fa-xmark"></i></button>
                 <div class="z-10 relative">
                     <span id="detail-badge" class="text-xs font-bold px-2 py-1 rounded bg-black/70 text-white mb-2 inline-block border border-white"></span>
-                    <h3 id="detail-title" class="text-2xl font-bold text-white drop-shadow-md"></h3>
+                    <h3 id="detail-title" class="text-2xl font-bold text-white drop-shadow-md break-words"></h3>
                 </div>
                 <div class="absolute inset-0 bg-gradient-to-t from-[#181818] to-transparent"></div>
             </div>
-            <div class="p-6 space-y-4">
-                <div class="flex items-center gap-3 text-gray-300">
+            <div class="p-5 space-y-4">
+                <div class="flex items-center gap-3">
                     <i class="fa-regular fa-clock text-netRed w-5 text-center"></i>
                     <p id="detail-time" class="font-medium text-white"></p>
                 </div>
-                <div class="flex items-center gap-3 text-gray-300">
+                <div class="flex items-center gap-3">
                     <i class="fa-solid fa-user text-netRed w-5 text-center"></i>
                     <p id="detail-author" class="font-medium text-white"></p>
                 </div>
@@ -170,248 +170,326 @@
     </div>
 
     <script>
+        // ===== 설정 =====
+        // Apps Script '웹 앱' 배포 URL (끝이 /exec). 코드 수정 후엔 "새 버전"으로 재배포해야 같은 URL에 반영됩니다.
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyEp13vz9Ey2JtP_iuNqoeZPnAySDUFiy3OT3Afu3YEz-i4knIXYRYQn4hnRF7wEr4g/exec";
-        
-        let currentUser = null;
-        let calendar = null;
+        // Google Cloud Console의 OAuth 클라이언트 ID (공개되어도 되는 값). Code.gs 의 CLIENT_ID 와 동일해야 함.
+        const CRED_KEY = 'nc_credential';
 
-        // JWT 디코딩 (구글 로그인 정보 추출)
+        let currentUser = null;
+        let idToken = null;
+        let calendar = null;
+        let upcomingEvents = [];
+        let appStarted = false;
+
+        // ===== 유틸 =====
+        const pad = n => String(n).padStart(2, '0');
+        const toDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        // 'YYYY-MM-DD' 는 로컬 자정으로, 그 외는 ISO 로 파싱 (타임존 밀림 방지)
+        function parseLocal(str) {
+            if (!str) return null;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                const [y, m, d] = str.split('-').map(Number);
+                return new Date(y, m - 1, d);
+            }
+            return new Date(str);
+        }
+
         function decodeJwt(token) {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
             return JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
         }
 
-        // 로그인 성공 시
+        // ===== API (모든 요청 POST + 토큰 동봉) =====
+        async function api(action, payload = {}) {
+            const res = await fetch(GAS_API_URL, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // preflight 회피
+                body: JSON.stringify({ action, idToken, ...payload })
+            });
+            const json = await res.json();
+            if (!json.success) {
+                if ((json.error || '').startsWith('AUTH')) logout(json.error);
+                throw new Error(json.error || '요청 실패');
+            }
+            return json;
+        }
+
+        // ===== 로그인 / 세션 =====
+        function startSession(credential) {
+            let user;
+            try { user = decodeJwt(credential); } catch (e) { return false; }
+            if (!user.exp || user.exp * 1000 < Date.now()) return false;
+
+            currentUser = user;
+            idToken = credential;
+            localStorage.setItem(CRED_KEY, credential);
+            if (!appStarted) enterApp();
+            return true;
+        }
+
         function handleCredentialResponse(response) {
-            currentUser = decodeJwt(response.credential);
-            
-            // 로그인 화면 페이드 아웃
+            startSession(response.credential);
+        }
+
+        function logout(message) {
+            localStorage.removeItem(CRED_KEY);
+            if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect();
+            if (message) sessionStorage.setItem('nc_login_msg', message.replace(/^AUTH:\s*/, ''));
+            location.reload();
+        }
+
+        function enterApp() {
+            appStarted = true;
             const loginScreen = document.getElementById('login-screen');
             loginScreen.classList.add('opacity-0');
-            setTimeout(() => {
-                loginScreen.classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('main-app').classList.add('flex');
-                
-                // 유저 프로필 세팅
-                document.getElementById('user-profile').innerHTML = `
-                    <img src="${currentUser.picture}" class="w-8 h-8 rounded border border-gray-600" referrerpolicy="no-referrer">
-                    <span>${currentUser.name}</span>
-                `;
-                
-                initCalendar();
-            }, 500);
+            setTimeout(() => loginScreen.classList.add('hidden'), 500);
+
+            const main = document.getElementById('main-app');
+            main.classList.remove('hidden');
+            main.classList.add('flex');
+
+            document.getElementById('user-profile').innerHTML = `
+                <img src="${escapeHtml(currentUser.picture || '')}" class="w-8 h-8 rounded border border-gray-600" referrerpolicy="no-referrer" alt="">
+                <span class="hidden sm:inline">${escapeHtml(currentUser.name)}</span>
+                <button onclick="logout()" class="text-xs text-gray-400 hover:text-white border border-gray-600 rounded px-2 py-1">로그아웃</button>
+            `;
+
+            initCalendar();
+            loadUpcoming();
         }
 
-        // 캘린더 초기화
-     function initCalendar() {
-            const calendarEl = document.getElementById('calendar');
-            calendar = new FullCalendar.Calendar(calendarEl, {
+        window.addEventListener('DOMContentLoaded', () => {
+            const msg = sessionStorage.getItem('nc_login_msg');
+            if (msg) {
+                const el = document.getElementById('login-error');
+                el.textContent = msg;
+                el.classList.remove('hidden');
+                sessionStorage.removeItem('nc_login_msg');
+            }
+            // 저장된 토큰이 아직 유효하면 바로 입장
+            const saved = localStorage.getItem(CRED_KEY);
+            if (saved && !startSession(saved)) localStorage.removeItem(CRED_KEY);
+        });
+
+        // ===== 캘린더 =====
+        function initCalendar() {
+            calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
                 initialView: 'dayGridMonth',
                 locale: 'ko',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth'
+                height: 'auto',
+                fixedWeekCount: false,
+                dayMaxEvents: 3,
+                headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+                // 모바일에서는 길게 눌러야 select 가 동작하므로, 탭으로 동작하는 dateClick 사용
+                dateClick: info => openAddModal(info.dateStr),
+                eventClick: info => {
+                    info.jsEvent.preventDefault();
+                    openDetailsModal(normalize({
+                        title: info.event.title,
+                        allDay: info.event.allDay,
+                        start: info.event.start,
+                        end: info.event.end,
+                        backgroundColor: info.event.backgroundColor,
+                        extendedProps: info.event.extendedProps
+                    }));
                 },
-                selectable: true,
-                select: function(info) {
-                    openAddModal(info.startStr, info.endStr, info.allDay);
-                    calendar.unselect();
-                },
-                events: function(info, successCallback, failureCallback) {
-                    // 💡 핵심 해결책: 끝에 &t=현재시간 을 붙여 무조건 새로고침된 데이터를 받아오게 함
-                    const fetchUrl = `${GAS_API_URL}?action=getEvents&start=${info.startStr}&end=${info.endStr}&t=${new Date().getTime()}`;
-                    
-                    // 💡 cache: 'no-store' 옵션 추가
-                    fetch(fetchUrl, { cache: 'no-store' })
-                        .then(res => res.json())
-                        .then(data => {
-                            allEventsData = data; 
-                            renderUpcomingEvents(data); // 우측 임박한 일정 업데이트
-                            successCallback(data);
-                        })
-                        .catch(err => failureCallback(err));
+                events: (info, success, failure) => {
+                    api('getEvents', { start: info.startStr, end: info.endStr })
+                        .then(r => success(r.events))
+                        .catch(err => { console.error(err); failure(err); });
                 }
             });
             calendar.render();
         }
 
-                // API 데이터 연동
-                events: function(info, successCallback, failureCallback) {
-                    fetch(`${GAS_API_URL}?action=getEvents&start=${info.startStr}&end=${info.endStr}`)
-                        .then(res => res.json())
-                        .then(data => {
-                            successCallback(data);
-                            updateSidebar(data); // 캘린더 로딩 성공 시 사이드바도 같이 업데이트
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            failureCallback(err);
-                        });
-                }
-            });
-            calendar.render();
+        // 서버/FullCalendar 이벤트를 화면용 객체로 통일
+        function normalize(ev) {
+            const props = ev.extendedProps || {};
+            const start = ev.start instanceof Date ? ev.start : parseLocal(ev.start);
+            let end = ev.end instanceof Date ? ev.end : parseLocal(ev.end);
+            if (!end) end = start;
+            return {
+                title: ev.title,
+                allDay: !!ev.allDay,
+                start, end,
+                color: ev.backgroundColor || '#808080',
+                category: props.category || '기타',
+                author: props.author || '익명'
+            };
         }
 
-        // 우측 임박한 일정 UI 업데이트
-        function updateSidebar(events) {
+        // ===== 임박한 일정 (현재 보고 있는 달과 무관하게 오늘~90일) =====
+        async function loadUpcoming() {
             const list = document.getElementById('upcoming-list');
-            const now = new Date();
-            now.setHours(0,0,0,0);
+            try {
+                const from = startOfDay(new Date());
+                const to = new Date(from); to.setDate(to.getDate() + 90);
+                const r = await api('getEvents', { start: from.toISOString(), end: to.toISOString() });
+                const now = new Date();
+                upcomingEvents = r.events.map(normalize)
+                    .filter(e => e.end > now)
+                    .sort((a, b) => a.start - b.start);
+                renderUpcoming();
+            } catch (err) {
+                list.innerHTML = `<div class="text-red-400 text-center py-10 bg-[#222] rounded-lg border border-[#333]">일정을 불러오지 못했습니다.<br><span class="text-xs text-gray-500">${escapeHtml(err.message)}</span></div>`;
+            }
+        }
 
-            // 미래 일정 필터링 및 정렬
-            const upcoming = events.filter(ev => new Date(ev.start) >= now)
-                                   .sort((a, b) => new Date(a.start) - new Date(b.start));
-
-            if(upcoming.length === 0) {
+        function renderUpcoming() {
+            const list = document.getElementById('upcoming-list');
+            if (!upcomingEvents.length) {
                 list.innerHTML = '<div class="text-gray-500 text-center py-10 bg-[#222] rounded-lg border border-[#333]">예정된 일정이 없습니다.</div>';
                 return;
             }
-
-            list.innerHTML = upcoming.map(ev => {
-                const dateObj = new Date(ev.start);
-                const diffDays = Math.ceil(Math.abs(dateObj - now) / (1000 * 60 * 60 * 24));
-                const dDayText = diffDays === 0 ? 'D-Day' : `D-${diffDays}`;
-                const dDayStyle = diffDays <= 3 ? 'bg-netRed text-white' : 'bg-[#333] text-gray-300';
-                
-                const props = ev.extendedProps || {};
-                const author = props.author || '익명';
-                const category = props.category || '기타';
-
+            const today = startOfDay(new Date());
+            list.innerHTML = upcomingEvents.map((ev, i) => {
+                const diff = Math.round((startOfDay(ev.start) - today) / 86400000);
+                const dDayText = diff <= 0 ? (diff < 0 ? '진행중' : 'D-Day') : `D-${diff}`;
+                const dDayStyle = diff <= 3 ? 'bg-netRed text-white' : 'bg-[#333] text-gray-300';
+                const dateText = ev.start.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
                 return `
-                    <div class="bg-[#222] rounded-lg p-5 border-l-4 hover:bg-[#2a2a2a] transition cursor-pointer shadow-lg group" 
-                         style="border-left-color: ${ev.backgroundColor}"
-                         onclick="triggerEventClick('${ev.id}')">
+                    <div class="upcoming-item bg-[#222] rounded-lg p-4 md:p-5 border-l-4 hover:bg-[#2a2a2a] transition cursor-pointer shadow-lg group"
+                         style="border-left-color: ${escapeHtml(ev.color)}" data-index="${i}">
                         <div class="flex justify-between items-center mb-3">
                             <span class="text-xs font-bold px-2 py-1 rounded ${dDayStyle}">${dDayText}</span>
-                            <span class="text-sm text-gray-400 font-medium">${dateObj.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}</span>
+                            <span class="text-sm text-gray-400 font-medium">${escapeHtml(dateText)}</span>
                         </div>
-                        <h4 class="font-bold text-xl text-white mb-2 truncate group-hover:text-netRed transition-colors">${ev.title}</h4>
+                        <h4 class="font-bold text-lg md:text-xl text-white mb-2 truncate group-hover:text-netRed transition-colors">${escapeHtml(ev.title)}</h4>
                         <div class="flex justify-between text-sm text-gray-400">
-                            <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background-color: ${ev.backgroundColor}"></span>${category}</span>
-                            <span><i class="fa-solid fa-user text-xs mr-1"></i>${author}</span>
+                            <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background-color: ${escapeHtml(ev.color)}"></span>${escapeHtml(ev.category)}</span>
+                            <span><i class="fa-solid fa-user text-xs mr-1"></i>${escapeHtml(ev.author)}</span>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
         }
 
-        // 모달 열기 애니메이션
-        function openModal(modalId) {
-            const modal = document.getElementById(modalId);
-            modal.classList.remove('hidden');
-            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        document.addEventListener('click', e => {
+            const item = e.target.closest('.upcoming-item');
+            if (item) openDetailsModal(upcomingEvents[Number(item.dataset.index)]);
+        });
+
+        // ===== 모달 =====
+        function openModal(id) {
+            const m = document.getElementById(id);
+            m.classList.remove('hidden');
+            setTimeout(() => m.classList.remove('opacity-0'), 10);
         }
 
-        // 모달 닫기 애니메이션
-        function closeModal(modalId) {
-            const modal = document.getElementById(modalId);
-            modal.classList.add('opacity-0');
+        function closeModal(id) {
+            const m = document.getElementById(id);
+            m.classList.add('opacity-0');
             setTimeout(() => {
-                modal.classList.add('hidden');
-                if(modalId === 'add-modal') {
+                m.classList.add('hidden');
+                if (id === 'add-modal') {
                     document.getElementById('ev-title').value = '';
+                    document.getElementById('add-error').classList.add('hidden');
                 }
             }, 300);
         }
 
-        // 새 일정 추가 모달 세팅
-        function openAddModal(start, end, allDay) {
-            document.getElementById('ev-allday').checked = allDay;
-            document.getElementById('ev-author').value = currentUser.name; // 작성자 자동 입력
-            
-            if(allDay) {
-                document.getElementById('ev-start').value = start + 'T09:00';
-                let endDate = new Date(end);
-                endDate.setDate(endDate.getDate() - 1);
-                document.getElementById('ev-end').value = endDate.toISOString().split('T')[0] + 'T18:00';
-            } else {
-                document.getElementById('ev-start').value = start.slice(0, 16);
-                document.getElementById('ev-end').value = end.slice(0, 16);
-            }
+        ['add-modal', 'details-modal'].forEach(id => {
+            document.getElementById(id).addEventListener('click', e => { if (e.target.id === id) closeModal(id); });
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') ['add-modal', 'details-modal'].forEach(id => {
+                if (!document.getElementById(id).classList.contains('hidden')) closeModal(id);
+            });
+        });
+
+        // 종일 여부에 따라 입력창 타입 전환 (date <-> datetime-local)
+        function applyAllDayMode() {
+            const allDay = document.getElementById('ev-allday').checked;
+            const s = document.getElementById('ev-start');
+            const e = document.getElementById('ev-end');
+            const sd = (s.value || '').slice(0, 10);
+            const ed = (e.value || '').slice(0, 10) || sd;
+            s.type = e.type = allDay ? 'date' : 'datetime-local';
+            s.value = allDay ? sd : `${sd}T09:00`;
+            e.value = allDay ? ed : `${ed}T10:00`;
+        }
+
+        function openAddModal(dateStr) {
+            const day = (dateStr || toDateStr(new Date())).slice(0, 10);
+            document.getElementById('ev-allday').checked = true;
+            document.getElementById('ev-start').value = day;
+            document.getElementById('ev-end').value = day;
+            applyAllDayMode();
+            document.getElementById('ev-author').value = currentUser.name;
             openModal('add-modal');
         }
 
-        // 상세보기 모달 세팅
-        function openDetailsModal(event) {
-            document.getElementById('detail-title').innerText = event.title;
-            
-            const startStr = event.start.toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
-            const endStr = event.end ? event.end.toLocaleString('ko-KR', { hour: '2-digit', minute:'2-digit' }) : '';
-            document.getElementById('detail-time').innerText = event.allDay ? '종일 일정' : `${startStr} ~ ${endStr}`;
-            
-            const props = event.extendedProps || {};
-            document.getElementById('detail-author').innerText = props.author || '작성자 미상';
-            
-            const cover = document.getElementById('detail-cover');
-            cover.style.backgroundColor = event.backgroundColor;
-            
-            const badge = document.getElementById('detail-badge');
-            badge.innerText = props.category || '기타';
-            
+        function openDetailsModal(ev) {
+            if (!ev) return;
+            document.getElementById('detail-title').textContent = ev.title;
+            document.getElementById('detail-author').textContent = ev.author;
+            document.getElementById('detail-badge').textContent = ev.category;
+            document.getElementById('detail-cover').style.backgroundColor = ev.color;
+
+            const dOpt = { month: 'short', day: 'numeric', weekday: 'short' };
+            const tOpt = { hour: '2-digit', minute: '2-digit' };
+            let text;
+            if (ev.allDay) {
+                const last = new Date(ev.end); last.setDate(last.getDate() - 1); // 종료일은 exclusive
+                text = toDateStr(last) === toDateStr(ev.start)
+                    ? `${ev.start.toLocaleDateString('ko-KR', dOpt)} · 종일`
+                    : `${ev.start.toLocaleDateString('ko-KR', dOpt)} ~ ${last.toLocaleDateString('ko-KR', dOpt)} · 종일`;
+            } else {
+                const sameDay = toDateStr(ev.start) === toDateStr(ev.end);
+                text = `${ev.start.toLocaleDateString('ko-KR', dOpt)} ${ev.start.toLocaleTimeString('ko-KR', tOpt)} ~ ` +
+                       (sameDay ? '' : ev.end.toLocaleDateString('ko-KR', dOpt) + ' ') + ev.end.toLocaleTimeString('ko-KR', tOpt);
+            }
+            document.getElementById('detail-time').textContent = text;
             openModal('details-modal');
         }
 
-        // 사이드바 클릭 시 이벤트 연동
-        function triggerEventClick(eventId) {
-            const ev = calendar.getEventById(eventId);
-            if(ev) openDetailsModal(ev);
-        }
-
-        // API로 이벤트 저장 (즉각 반영 로직 포함)
-        function saveEvent() {
-            const title = document.getElementById('ev-title').value;
-            const start = document.getElementById('ev-start').value;
-            const end = document.getElementById('ev-end').value;
+        // ===== 저장 =====
+        async function saveEvent() {
+            const titleEl = document.getElementById('ev-title');
+            const errEl = document.getElementById('add-error');
             const btn = document.getElementById('btn-save');
+            const title = titleEl.value.trim();
+            const startVal = document.getElementById('ev-start').value;
+            const endVal = document.getElementById('ev-end').value;
+            const allDay = document.getElementById('ev-allday').checked;
 
-            if(!title || !start || !end) {
-                // 커스텀 스타일 오류 표시
-                document.getElementById('ev-title').style.borderColor = '#e50914';
-                setTimeout(() => document.getElementById('ev-title').style.borderColor = '#404040', 2000);
-                return;
+            const showError = msg => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+            errEl.classList.add('hidden');
+
+            if (!title) { titleEl.style.borderColor = '#e50914'; setTimeout(() => titleEl.style.borderColor = '#404040', 2000); return showError('제목을 입력하세요.'); }
+            if (!startVal || !endVal) return showError('시작/종료 시간을 입력하세요.');
+
+            let start, end;
+            if (allDay) {
+                if (endVal < startVal) return showError('종료일이 시작일보다 빠릅니다.');
+                start = startVal; end = endVal; // 'YYYY-MM-DD' (종료일 포함, 서버가 +1일 처리)
+            } else {
+                const s = new Date(startVal), e = new Date(endVal);
+                if (e <= s) return showError('종료 시간이 시작 시간보다 늦어야 합니다.');
+                start = s.toISOString(); end = e.toISOString(); // 브라우저 로컬 시간 → 타임존 포함 ISO
             }
 
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
             btn.disabled = true;
-
-            const payload = {
-                action: 'addEvent',
-                title: title,
-                start: start,
-                end: end,
-                allDay: document.getElementById('ev-allday').checked,
-                category: document.getElementById('ev-category').value,
-                author: currentUser.name
-            };
-
-            fetch(GAS_API_URL, {
-                method: 'POST',
-                redirect: 'follow',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(res => {
-                if(res.success) {
-                    closeModal('add-modal');
-                    // 핵심: 저장이 완료되면 캘린더를 강제로 다시 불러와 즉각 화면에 반영합니다.
-                    calendar.refetchEvents();
-                } else {
-                    alert("오류 발생: " + res.error);
-                }
-            })
-            .catch(err => {
-                alert("네트워크 통신 오류가 발생했습니다.");
-            })
-            .finally(() => {
+            try {
+                await api('addEvent', { title, start, end, allDay, category: document.getElementById('ev-category').value });
+                closeModal('add-modal');
+                calendar.refetchEvents();
+                loadUpcoming();
+            } catch (err) {
+                showError('오류: ' + err.message);
+            } finally {
                 btn.innerHTML = '등록하기';
                 btn.disabled = false;
-            });
+            }
         }
     </script>
 </body>
 </html>
-`
