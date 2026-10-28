@@ -62,14 +62,12 @@
         .fc .fc-daygrid-day-number { padding: 8px 10px; font-weight: 600; color: #fff; }
         .fc .fc-day-other .fc-daygrid-day-number { color: #fff; opacity: .35; }
 
-        /* 이벤트: 시간 있는 일정 = 점 + 시간 + 굵은 제목 / 종일·기간 일정 = 색 막대 */
         .fc .fc-event { cursor: pointer; border: none; }
         .fc .fc-daygrid-block-event { border-radius: 3px; padding: 1px 6px; }
         .fc .fc-daygrid-dot-event { padding: 2px 4px; }
         .fc .fc-daygrid-dot-event:hover { background: rgba(255,255,255,.08); }
         .fc .fc-daygrid-dot-event .fc-event-title { font-weight: 700; color: #fff; }
         .fc .fc-daygrid-dot-event .fc-event-time { font-weight: 500; color: #ddd; }
-        .fc .fc-event-main { color: #fff; }
         .fc .fc-daygrid-event { font-size: .8rem; }
         .fc .fc-daygrid-more-link { color: #aaa; font-size: .75rem; padding: 0 4px; }
         .fc .fc-popover { background: #222; border-color: #333; }
@@ -91,10 +89,10 @@
             .fc .fc-daygrid-day-number { padding: 5px 0; font-size: .85rem; }
         }
 
-        /* 입력 / 모달 */
         .net-input { background-color: #333; border: 1px solid #404040; color: white; border-radius: 4px; padding: 0.75rem 1rem; width: 100%; outline: none; }
         .net-input:focus { border-color: #e50914; }
         .net-input::-webkit-calendar-picker-indicator { filter: invert(1); }
+        textarea.net-input { resize: vertical; }
         .modal-overlay { backdrop-filter: blur(5px); background-color: rgba(0, 0, 0, 0.75); transition: opacity 0.3s ease; }
     </style>
 </head>
@@ -120,10 +118,11 @@
             <div id="user-profile" class="relative"></div>
         </header>
 
-        <!-- 모바일: 세로(캘린더 → 선택한 날 → 임박한 일정) / 데스크톱: 좌 70% · 우 30% -->
         <main class="flex-1 min-h-0 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-            <section class="w-full md:w-[70%] md:h-full p-3 md:p-5 md:overflow-hidden">
-                <div id="calendar" class="w-full md:h-full"></div>
+            <section class="w-full md:w-[70%] md:h-full p-3 md:p-5 md:overflow-hidden md:flex md:flex-col">
+                <!-- 범례: 사람별 고정 색 -->
+                <div id="legend" class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-300 mb-3 shrink-0"></div>
+                <div id="calendar" class="w-full md:flex-1 md:min-h-0"></div>
             </section>
 
             <aside class="w-full md:w-[30%] md:h-full bg-[#181818] md:border-l border-t md:border-t-0 border-[#2f2f2f] p-4 md:p-6 flex flex-col md:overflow-y-auto">
@@ -140,28 +139,50 @@
                     <h2 class="text-lg md:text-xl font-bold">임박한 일정</h2>
                     <i class="fa-regular fa-bell text-gray-300"></i>
                 </div>
-                <div id="upcoming-list" class="space-y-3 md:space-y-4 pb-24 md:pb-4">
+                <div id="upcoming-list" class="space-y-3 md:space-y-4 md:max-h-[360px] md:overflow-y-auto md:pr-2 shrink-0">
                     <div class="text-gray-500 text-center py-10"><i class="fa-solid fa-spinner fa-spin mr-2"></i> 일정을 불러오는 중...</div>
                 </div>
+
+                <!-- 일정 분석 대시보드 -->
+                <div id="dashboard" class="mt-8 pb-24 md:pb-4"></div>
             </aside>
         </main>
 
-        <!-- 모바일 전용 일정 추가 버튼 -->
         <button onclick="openAddModal(selectedDate)" aria-label="일정 추가"
                 class="md:hidden fixed bottom-5 right-5 w-14 h-14 rounded-full bg-netRed hover:bg-[#b1060e] text-white text-2xl shadow-xl z-40 flex items-center justify-center">
             <i class="fa-solid fa-plus"></i>
         </button>
     </div>
 
-    <!-- 3. 모달: 새 일정 등록 -->
+    <!-- 3. 모달: 일정 등록 / 수정 -->
     <div id="add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0">
         <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-md border border-gray-700 overflow-hidden max-h-[95dvh] overflow-y-auto">
             <div class="p-5 border-b border-[#2f2f2f] flex justify-between items-center bg-[#222]">
-                <h3 class="text-xl font-bold">새 일정 등록</h3>
+                <h3 id="modal-title" class="text-xl font-bold">새 일정 등록</h3>
                 <button onclick="closeModal('add-modal')" class="text-gray-400 hover:text-white" aria-label="닫기"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-            <div class="p-5 space-y-5">
+            <div class="p-5 space-y-4">
                 <input type="text" id="ev-title" maxlength="100" class="net-input text-lg font-bold" placeholder="일정 제목">
+
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">일정 종류</label>
+                    <select id="ev-category" class="net-input cursor-pointer" onchange="onCategoryChange()">
+                        <option value="회사 일정">🏢 회사 일정</option>
+                        <option value="개인 일정">👤 개인 일정</option>
+                        <option value="블로그 협찬">📝 블로그 협찬 (공통)</option>
+                    </select>
+                </div>
+
+                <!-- 블로그 협찬 선택 시에만 표시 -->
+                <div id="blog-box" class="hidden space-y-3 bg-[#1f1f1f] border border-[#333] rounded p-3">
+                    <label class="block text-xs text-gray-400">협찬 플랫폼</label>
+                    <select id="ev-platform" class="net-input cursor-pointer" onchange="onPlatformChange()">
+                        <option value="리뷰노트">리뷰노트</option>
+                        <option value="강남맛집">강남맛집</option>
+                        <option value="__etc__">기타 (직접 입력)</option>
+                    </select>
+                    <input type="text" id="ev-platform-custom" maxlength="30" class="net-input hidden" placeholder="플랫폼 / 업체명을 직접 입력">
+                </div>
 
                 <div class="flex gap-3">
                     <div class="flex-1 min-w-0">
@@ -179,17 +200,14 @@
                     <span class="text-sm">종일(All-Day) 일정</span>
                 </label>
 
-                <div class="flex gap-3">
-                    <div class="flex-1 min-w-0">
-                        <input type="text" id="ev-author" class="net-input bg-[#222] text-gray-400 cursor-not-allowed" readonly>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <select id="ev-category" class="net-input cursor-pointer">
-                            <option value="회사 일정">🏢 회사 일정</option>
-                            <option value="개인 일정">👤 개인 일정</option>
-                            <option value="블로그 협찬">📝 블로그 협찬</option>
-                        </select>
-                    </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">메모 (선택)</label>
+                    <textarea id="ev-memo" rows="3" maxlength="500" class="net-input" placeholder="업체명, 방문 주소, 요청사항 등"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">작성자</label>
+                    <input type="text" id="ev-author" class="net-input bg-[#222] text-gray-400 cursor-not-allowed" readonly>
                 </div>
                 <p id="add-error" class="text-red-400 text-sm hidden"></p>
             </div>
@@ -202,7 +220,7 @@
 
     <!-- 4. 모달: 일정 상세 -->
     <div id="details-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0">
-        <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-sm overflow-hidden border border-gray-700">
+        <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-sm overflow-hidden border border-gray-700 max-h-[95dvh] overflow-y-auto">
             <div class="h-32 w-full relative bg-[#2f2f2f] flex flex-col justify-end p-5" id="detail-cover">
                 <button onclick="closeModal('details-modal')" aria-label="닫기" class="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full text-white hover:bg-white hover:text-black transition flex items-center justify-center z-20"><i class="fa-solid fa-xmark"></i></button>
                 <div class="z-10 relative">
@@ -220,6 +238,18 @@
                     <i class="fa-solid fa-user text-netRed w-5 text-center"></i>
                     <p id="detail-author" class="font-medium text-white"></p>
                 </div>
+                <div id="detail-platform-row" class="hidden flex items-center gap-3">
+                    <i class="fa-solid fa-store text-netRed w-5 text-center"></i>
+                    <p id="detail-platform" class="font-medium text-white"></p>
+                </div>
+                <div id="detail-memo-row" class="hidden flex items-start gap-3">
+                    <i class="fa-regular fa-note-sticky text-netRed w-5 text-center mt-1"></i>
+                    <p id="detail-memo" class="text-gray-200 whitespace-pre-wrap break-words text-sm"></p>
+                </div>
+            </div>
+            <div id="detail-actions" class="hidden p-5 pt-0 flex gap-3">
+                <button onclick="startEdit()" class="flex-1 bg-netRed hover:bg-[#b1060e] text-white font-bold py-3 rounded transition"><i class="fa-solid fa-pen mr-1"></i> 수정</button>
+                <button onclick="deleteCurrent()" id="btn-delete" class="flex-1 bg-transparent border border-gray-500 hover:border-white text-white font-bold py-3 rounded transition"><i class="fa-regular fa-trash-can mr-1"></i> 삭제</button>
             </div>
         </div>
     </div>
@@ -229,21 +259,24 @@
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyEp13vz9Ey2JtP_iuNqoeZPnAySDUFiy3OT3Afu3YEz-i4knIXYRYQn4hnRF7wEr4g/exec";
         const CRED_KEY = 'nc_credential';
 
-        // 카테고리별 색상/짧은 이름 (서버 수정 없이 여기서만 바꾸면 됩니다)
-        const CATEGORY_STYLE = {
-            '회사 일정':   { color: '#2d7ff9', short: '회사' },
-            '개인 일정':   { color: '#22c55e', short: '개인' },
-            '블로그 협찬': { color: '#9b59b6', short: '블로그' }
-        };
-        const styleOf = cat => CATEGORY_STYLE[cat] || { color: '#808080', short: cat || '기타' };
+        const BLOG = '블로그 협찬';
+        const BLOG_COLOR = '#9b59b6'; // 서버(Code.gs)의 BLOG_COLOR 와 동일
+        const PRESET_PLATFORMS = ['리뷰노트', '강남맛집'];
+        const CATEGORY_SHORT = { '회사 일정': '회사', '개인 일정': '개인', '블로그 협찬': '블로그' };
+        const CATEGORY_DASH_COLOR = { '회사 일정': '#64748b', '개인 일정': '#cbd5e1', '블로그 협찬': BLOG_COLOR };
 
         let currentUser = null;
         let idToken = null;
         let calendar = null;
+        let legend = [];
+        let allEvents = null;        // 대시보드/임박한 일정용 (이번 달 ~ +90일)
         let upcomingEvents = [];
         let dayEvents = [];
+        let currentDetail = null;
+        let editingId = null;
+        let dashMode = 'month';
         let appStarted = false;
-        let selectedDate = null; // 모바일에서 선택한 날짜 'YYYY-MM-DD'
+        let selectedDate = null;
 
         const mq = window.matchMedia('(max-width: 767px)');
         const isMobile = () => mq.matches;
@@ -253,6 +286,8 @@
         const toDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         const toLocalInput = d => `${toDateStr(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+        const WEEKDAYS = '일월화수목금토';
+        const fmtMD = d => `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
         selectedDate = toDateStr(new Date());
 
         function escapeHtml(s) {
@@ -271,6 +306,15 @@
         function decodeJwt(token) {
             const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
             return JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+        }
+
+        // 밝은 배경색 위에서는 어두운 글자
+        function contrastText(hex) {
+            const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+            if (!m) return '#fff';
+            const n = parseInt(m[1], 16);
+            const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+            return lum > 0.65 ? '#111' : '#fff';
         }
 
         // ===== API =====
@@ -336,8 +380,9 @@
                 document.getElementById('profile-menu').classList.toggle('hidden');
             });
 
+            renderLegend();
             initCalendar();
-            loadUpcoming();
+            loadSummary();
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -352,14 +397,19 @@
             if (saved && !startSession(saved)) localStorage.removeItem(CRED_KEY);
         });
 
+        // ===== 범례 =====
+        function renderLegend() {
+            const chip = (name, color) => `<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${escapeHtml(color)}"></span>${escapeHtml(name)}</span>`;
+            const items = legend.map(u => chip(u.name + (currentUser && u.name === currentUser.name ? ' (나)' : ''), u.color));
+            items.push(chip('블로그 협찬 (공통)', BLOG_COLOR));
+            document.getElementById('legend').innerHTML = items.join('');
+        }
+
         // ===== 캘린더 =====
         const TOOLBAR_DESKTOP = { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' };
         const TOOLBAR_MOBILE = { left: 'prev,next', center: 'title', right: 'today' };
 
-        function applyStyle(ev) {
-            const st = styleOf(ev.extendedProps && ev.extendedProps.category);
-            return { ...ev, backgroundColor: st.color, borderColor: st.color };
-        }
+        const applyStyle = ev => ({ ...ev, textColor: contrastText(ev.backgroundColor) });
 
         function initCalendar() {
             const m = isMobile();
@@ -380,7 +430,6 @@
 
                 dateClick: info => {
                     if (isMobile()) {
-                        // 모바일: 탭 → 그 날짜의 일정 보기 (추가는 + 버튼)
                         selectedDate = info.dateStr.slice(0, 10);
                         highlightSelected();
                         renderDayAgenda();
@@ -406,14 +455,17 @@
                 eventsSet: () => { renderMobileDots(); renderDayAgenda(); },
                 events: (info, success, failure) => {
                     api('getEvents', { start: info.startStr, end: info.endStr })
-                        .then(r => success(r.events.map(applyStyle)))
+                        .then(r => {
+                            legend = r.legend || legend;
+                            renderLegend();
+                            success(r.events.map(applyStyle));
+                        })
                         .catch(err => { console.error(err); failure(err); });
                 }
             });
             calendar.render();
         }
 
-        // 화면 크기가 바뀌면(회전 등) 레이아웃 재적용
         mq.addEventListener('change', () => {
             if (!calendar) return;
             const m = isMobile();
@@ -428,14 +480,13 @@
             renderDayAgenda();
         });
 
-        // 모바일: 날짜 칸 아래에 일정 색 점 표시
         function renderMobileDots() {
             document.querySelectorAll('.nc-dots').forEach(n => n.remove());
             if (!isMobile() || !calendar) return;
             const map = {};
             calendar.getEvents().forEach(ev => {
                 if (!ev.start) return;
-                const color = styleOf(ev.extendedProps.category).color;
+                const color = ev.backgroundColor || '#808080';
                 const end = ev.end || ev.start;
                 let d = startOfDay(ev.start);
                 do {
@@ -471,55 +522,79 @@
             const start = ev.start instanceof Date ? ev.start : parseLocal(ev.start);
             let end = ev.end instanceof Date ? ev.end : parseLocal(ev.end);
             if (!end) end = start;
-            const category = props.category || '기타';
             return {
+                id: ev.id,
                 title: ev.title,
                 allDay: !!ev.allDay,
                 start, end,
-                color: styleOf(category).color,
-                category,
-                author: props.author || '익명'
+                color: ev.backgroundColor || '#808080',
+                category: props.category || '개인 일정',
+                author: props.author || '익명',
+                platform: props.platform || '',
+                memo: props.memo || '',
+                canEdit: !!props.canEdit
             };
         }
-        const fcToView = ev => normalize({ title: ev.title, allDay: ev.allDay, start: ev.start, end: ev.end, extendedProps: ev.extendedProps });
+        const fcToView = ev => normalize({
+            id: ev.id, title: ev.title, allDay: ev.allDay, start: ev.start, end: ev.end,
+            backgroundColor: ev.backgroundColor, extendedProps: ev.extendedProps
+        });
 
-        // ===== 카드 UI (임박한 일정 / 선택한 날짜 공용) =====
+        // ===== 카드 UI =====
         function badgeHtml(text, red) {
             const cls = red ? 'bg-netRed text-white' : 'bg-[#2d3340] text-gray-300';
             return `<span class="text-xs font-bold px-2 py-1 rounded ${cls}">${escapeHtml(text)}</span>`;
         }
 
+        function categoryLabel(ev) {
+            const s = CATEGORY_SHORT[ev.category] || ev.category;
+            return ev.category === BLOG && ev.platform ? `${s} · ${ev.platform}` : s;
+        }
+
         function cardHtml(ev, cls, idx, badge, rightText) {
-            const st = styleOf(ev.category);
             return `
                 <div class="${cls} bg-[#2a2a2a] hover:bg-[#333] rounded-md p-4 border-l-4 cursor-pointer transition shadow-md"
-                     style="border-left-color: ${st.color}" data-index="${idx}">
+                     style="border-left-color: ${escapeHtml(ev.color)}" data-index="${idx}">
                     <div class="flex justify-between items-center mb-2">
                         ${badge}
                         <span class="text-xs text-gray-400">${escapeHtml(rightText)}</span>
                     </div>
                     <h4 class="font-bold text-lg text-white mb-2 truncate">${escapeHtml(ev.title)}</h4>
                     <div class="flex items-center gap-4 text-sm text-gray-400">
-                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background-color: ${st.color}"></span>${escapeHtml(st.short)}</span>
-                        <span class="flex items-center gap-1"><i class="fa-solid fa-user text-xs"></i>${escapeHtml(ev.author)}</span>
+                        <span class="flex items-center gap-2 min-w-0"><span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${escapeHtml(ev.color)}"></span><span class="truncate">${escapeHtml(categoryLabel(ev))}</span></span>
+                        <span class="flex items-center gap-1 shrink-0"><i class="fa-solid fa-user text-xs"></i>${escapeHtml(ev.author)}</span>
                     </div>
                 </div>`;
         }
 
-        // ===== 임박한 일정 (오늘~90일) =====
-        async function loadUpcoming() {
-            const list = document.getElementById('upcoming-list');
+        // ===== 임박한 일정 + 대시보드 데이터 (이번 달/이번 주/오늘~90일을 한 번에) =====
+        async function loadSummary() {
             try {
-                const from = startOfDay(new Date());
-                const to = new Date(from); to.setDate(to.getDate() + 90);
+                const t = startOfDay(new Date());
+                const monthStart = new Date(t.getFullYear(), t.getMonth(), 1);
+                const monthEnd = new Date(t.getFullYear(), t.getMonth() + 1, 1);
+                const weekStart = new Date(t); weekStart.setDate(t.getDate() - t.getDay());
+                const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
+                const horizon = new Date(t); horizon.setDate(horizon.getDate() + 90);
+
+                const from = new Date(Math.min(monthStart, weekStart));
+                const to = new Date(Math.max(monthEnd, weekEnd, horizon));
                 const r = await api('getEvents', { start: from.toISOString(), end: to.toISOString() });
+
+                legend = r.legend || legend;
+                renderLegend();
+                allEvents = r.events.map(normalize);
+
                 const now = new Date();
-                upcomingEvents = r.events.map(normalize)
-                    .filter(e => e.end > now)
+                upcomingEvents = allEvents
+                    .filter(e => e.end > now && e.start < horizon)
                     .sort((a, b) => a.start - b.start);
                 renderUpcoming();
+                renderDashboard();
             } catch (err) {
-                list.innerHTML = `<div class="text-red-400 text-center py-10 bg-[#222] rounded-lg border border-[#333]">일정을 불러오지 못했습니다.<br><span class="text-xs text-gray-500">${escapeHtml(err.message)}</span></div>`;
+                const msg = `<div class="text-red-400 text-center py-8 bg-[#222] rounded-lg border border-[#333]">일정을 불러오지 못했습니다.<br><span class="text-xs text-gray-500">${escapeHtml(err.message)}</span></div>`;
+                document.getElementById('upcoming-list').innerHTML = msg;
+                document.getElementById('dashboard').innerHTML = '';
             }
         }
 
@@ -536,6 +611,151 @@
                 const dateText = ev.start.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' });
                 return cardHtml(ev, 'upcoming-item', i, badgeHtml(text, diff <= 3), dateText);
             }).join('');
+        }
+
+        // ===== 일정 분석 대시보드 =====
+        function setDashMode(mode) { dashMode = mode; renderDashboard(); }
+
+        function periodRange(mode) {
+            const t = startOfDay(new Date());
+            let s, e, label;
+            if (mode === 'week') {
+                s = new Date(t); s.setDate(t.getDate() - t.getDay());
+                e = new Date(s); e.setDate(s.getDate() + 7);
+                const last = new Date(e); last.setDate(last.getDate() - 1);
+                label = `이번 주 · ${s.getMonth() + 1}/${s.getDate()} ~ ${last.getMonth() + 1}/${last.getDate()}`;
+            } else {
+                s = new Date(t.getFullYear(), t.getMonth(), 1);
+                e = new Date(t.getFullYear(), t.getMonth() + 1, 1);
+                label = `이번 달 · ${t.getFullYear()}년 ${t.getMonth() + 1}월`;
+            }
+            return { s, e, label };
+        }
+
+        const overlaps = (ev, s, e) => {
+            const end = ev.end > ev.start ? ev.end : new Date(ev.start.getTime() + 1);
+            return ev.start < e && end > s;
+        };
+
+        function renderDashboard() {
+            const box = document.getElementById('dashboard');
+            if (!allEvents) return;
+            const { s, e, label } = periodRange(dashMode);
+            const evs = allEvents.filter(ev => overlaps(ev, s, e));
+            const total = evs.length;
+
+            // 종류별
+            const by = { '회사 일정': 0, '개인 일정': 0, [BLOG]: 0 };
+            evs.forEach(ev => { if (by[ev.category] !== undefined) by[ev.category]++; });
+            const pct = n => total ? Math.round(n / total * 100) : 0;
+
+            // 블로그 플랫폼별
+            const plat = { '리뷰노트': 0, '강남맛집': 0, '기타': 0 };
+            evs.filter(ev => ev.category === BLOG).forEach(ev => {
+                plat[PRESET_PLATFORMS.includes(ev.platform) ? ev.platform : '기타']++;
+            });
+            const platMax = Math.max(1, ...Object.values(plat));
+
+            // 멤버별 (공통 일정인 블로그 협찬 제외)
+            const members = {};
+            evs.filter(ev => ev.category !== BLOG).forEach(ev => {
+                const m = members[ev.author] || (members[ev.author] = { count: 0, color: ev.color });
+                m.count++;
+            });
+            const memberList = Object.entries(members).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
+            const memberMax = Math.max(1, ...memberList.map(([, v]) => v.count));
+
+            // 일자별
+            const days = Math.round((e - s) / 86400000);
+            const counts = [];
+            for (let i = 0; i < days; i++) {
+                const d0 = new Date(s.getFullYear(), s.getMonth(), s.getDate() + i);
+                const d1 = new Date(s.getFullYear(), s.getMonth(), s.getDate() + i + 1);
+                counts.push(evs.filter(ev => overlaps(ev, d0, d1)).length);
+            }
+            const maxC = Math.max(...counts, 0);
+            const busiestIdx = maxC > 0 ? counts.indexOf(maxC) : -1;
+            const todayStr = toDateStr(new Date());
+
+            const bars = counts.map((c, i) => {
+                const d = new Date(s.getFullYear(), s.getMonth(), s.getDate() + i);
+                const h = c ? Math.max(14, Math.round(c / maxC * 100)) : 4;
+                const isToday = toDateStr(d) === todayStr;
+                return `<div class="flex-1 h-full flex flex-col justify-end" title="${d.getMonth() + 1}/${d.getDate()} · ${c}개">
+                            <div class="rounded-sm ${isToday ? 'bg-netRed' : 'bg-[#6b6b6b]'}" style="height:${h}%;${c ? '' : 'opacity:.35'}"></div>
+                        </div>`;
+            }).join('');
+            const barLabels = dashMode === 'week'
+                ? `<div class="flex gap-[2px] mt-1">${counts.map((_, i) => `<span class="flex-1 text-center text-[10px] text-gray-500">${WEEKDAYS[i]}</span>`).join('')}</div>`
+                : `<div class="flex justify-between mt-1 text-[10px] text-gray-500"><span>1일</span><span>${days}일</span></div>`;
+
+            const tile = (num, name, accent) => `
+                <div class="bg-[#222] border border-[#2f2f2f] rounded-lg p-3">
+                    <div class="text-2xl font-extrabold" style="${accent ? `color:${accent}` : ''}">${num}</div>
+                    <div class="text-xs text-gray-400 mt-0.5">${name}</div>
+                </div>`;
+
+            const row = (name, n, max, color) => `
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-16 shrink-0 text-gray-300 truncate">${escapeHtml(name)}</span>
+                    <div class="flex-1 h-2 bg-[#2a2a2a] rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:${n ? Math.max(6, Math.round(n / max * 100)) : 0}%;background:${escapeHtml(color)}"></div></div>
+                    <span class="w-6 text-right font-semibold">${n}</span>
+                </div>`;
+
+            const stacked = total
+                ? ['회사 일정', '개인 일정', BLOG].map(k => by[k] ? `<div style="width:${by[k] / total * 100}%;background:${CATEGORY_DASH_COLOR[k]}" title="${CATEGORY_SHORT[k]} ${by[k]}개"></div>` : '').join('')
+                : '';
+            const stackedLegend = ['회사 일정', '개인 일정', BLOG].map(k => `
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full inline-block" style="background:${CATEGORY_DASH_COLOR[k]}"></span>${CATEGORY_SHORT[k]} ${by[k]} (${pct(by[k])}%)</span>`).join('');
+
+            const title = t => `<h3 class="text-sm font-bold text-gray-200 mb-2">${t}</h3>`;
+
+            box.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-lg md:text-xl font-bold">일정 분석 <i class="fa-solid fa-chart-simple text-gray-400 ml-1 text-base"></i></h2>
+                    <div class="flex bg-[#2f2f2f] rounded overflow-hidden text-xs font-semibold">
+                        <button onclick="setDashMode('week')" class="px-3 py-1.5 ${dashMode === 'week' ? 'bg-netRed' : 'hover:bg-[#404040]'}">이번 주</button>
+                        <button onclick="setDashMode('month')" class="px-3 py-1.5 ${dashMode === 'month' ? 'bg-netRed' : 'hover:bg-[#404040]'}">이번 달</button>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mb-4">${escapeHtml(label)}</p>
+
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    ${tile(total, '전체 일정')}
+                    ${tile(by[BLOG], '블로그 협찬', BLOG_COLOR)}
+                    ${tile(by['회사 일정'], '회사 일정')}
+                    ${tile(by['개인 일정'], '개인 일정')}
+                </div>
+
+                ${total ? `
+                <div class="mb-5">
+                    ${title('일정 구성')}
+                    <div class="flex h-3 rounded-full overflow-hidden bg-[#2a2a2a] mb-2">${stacked}</div>
+                    <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">${stackedLegend}</div>
+                </div>` : `<div class="text-gray-500 text-sm text-center py-6 bg-[#222] rounded-lg border border-[#2f2f2f] mb-5">이 기간에 등록된 일정이 없습니다.</div>`}
+
+                <div class="mb-5">
+                    ${title('블로그 협찬 플랫폼')}
+                    <div class="space-y-2">
+                        ${Object.entries(plat).map(([k, v]) => row(k, v, platMax, BLOG_COLOR)).join('')}
+                    </div>
+                </div>
+
+                <div class="mb-5">
+                    ${title('멤버별 일정 <span class="text-xs font-normal text-gray-500">(협찬 제외)</span>')}
+                    <div class="space-y-2">
+                        ${memberList.length ? memberList.map(([name, v]) => row(name, v.count, memberMax, v.color)).join('') : '<p class="text-xs text-gray-500">데이터가 없습니다.</p>'}
+                    </div>
+                </div>
+
+                <div>
+                    ${title('일자별 일정 수')}
+                    <div class="flex items-end gap-[2px] h-20">${bars}</div>
+                    ${barLabels}
+                    <p class="text-xs text-gray-400 mt-3">${busiestIdx >= 0
+                        ? `가장 바쁜 날: <span class="text-white font-semibold">${fmtMD(new Date(s.getFullYear(), s.getMonth(), s.getDate() + busiestIdx))}</span> · ${maxC}개`
+                        : '가장 바쁜 날: -'}</p>
+                </div>`;
         }
 
         // ===== 모바일: 선택한 날짜의 일정 =====
@@ -576,7 +796,7 @@
             if (menu && !e.target.closest('#profile-menu')) menu.classList.add('hidden');
         });
 
-        // ===== 모달 =====
+        // ===== 모달 공통 =====
         function openModal(id) {
             const m = document.getElementById(id);
             m.classList.remove('hidden');
@@ -588,10 +808,7 @@
             m.classList.add('opacity-0');
             setTimeout(() => {
                 m.classList.add('hidden');
-                if (id === 'add-modal') {
-                    document.getElementById('ev-title').value = '';
-                    document.getElementById('add-error').classList.add('hidden');
-                }
+                if (id === 'add-modal') document.getElementById('add-error').classList.add('hidden');
             }, 300);
         }
 
@@ -604,6 +821,19 @@
             });
         });
 
+        // ===== 등록 / 수정 폼 =====
+        function onCategoryChange() {
+            const blog = document.getElementById('ev-category').value === BLOG;
+            document.getElementById('blog-box').classList.toggle('hidden', !blog);
+            onPlatformChange();
+        }
+
+        function onPlatformChange() {
+            const blog = document.getElementById('ev-category').value === BLOG;
+            const etc = document.getElementById('ev-platform').value === '__etc__';
+            document.getElementById('ev-platform-custom').classList.toggle('hidden', !(blog && etc));
+        }
+
         function applyAllDayMode() {
             const allDay = document.getElementById('ev-allday').checked;
             const s = document.getElementById('ev-start');
@@ -615,8 +845,21 @@
             e.value = allDay ? ed : `${ed}T10:00`;
         }
 
-        // dateStr: 'YYYY-MM-DD' 또는 시간 포함 문자열(주/일 보기에서 시간 칸 클릭)
+        function resetForm() {
+            document.getElementById('ev-title').value = '';
+            document.getElementById('ev-memo').value = '';
+            document.getElementById('ev-category').value = '회사 일정';
+            document.getElementById('ev-platform').value = '리뷰노트';
+            document.getElementById('ev-platform-custom').value = '';
+            onCategoryChange();
+        }
+
         function openAddModal(dateStr, allDay = true) {
+            editingId = null;
+            resetForm();
+            document.getElementById('modal-title').textContent = '새 일정 등록';
+            document.getElementById('btn-save').textContent = '등록하기';
+
             const s = document.getElementById('ev-start');
             const e = document.getElementById('ev-end');
             document.getElementById('ev-allday').checked = allDay;
@@ -633,12 +876,58 @@
             openModal('add-modal');
         }
 
+        function openEditModal(ev) {
+            editingId = ev.id;
+            resetForm();
+            document.getElementById('modal-title').textContent = '일정 수정';
+            document.getElementById('btn-save').textContent = '저장하기';
+            document.getElementById('ev-title').value = ev.title;
+            document.getElementById('ev-memo').value = ev.memo;
+            document.getElementById('ev-category').value = ev.category;
+            if (ev.category === BLOG) {
+                if (PRESET_PLATFORMS.includes(ev.platform)) {
+                    document.getElementById('ev-platform').value = ev.platform;
+                } else {
+                    document.getElementById('ev-platform').value = '__etc__';
+                    document.getElementById('ev-platform-custom').value = ev.platform;
+                }
+            }
+            onCategoryChange();
+
+            const s = document.getElementById('ev-start');
+            const e = document.getElementById('ev-end');
+            document.getElementById('ev-allday').checked = ev.allDay;
+            s.type = e.type = ev.allDay ? 'date' : 'datetime-local';
+            if (ev.allDay) {
+                const last = new Date(ev.end); last.setDate(last.getDate() - 1); // 종료일은 exclusive
+                s.value = toDateStr(ev.start);
+                e.value = toDateStr(last < ev.start ? ev.start : last);
+            } else {
+                s.value = toLocalInput(ev.start);
+                e.value = toLocalInput(ev.end);
+            }
+            document.getElementById('ev-author').value = ev.author;
+            openModal('add-modal');
+        }
+
+        // ===== 상세 모달 =====
         function openDetailsModal(ev) {
             if (!ev) return;
+            currentDetail = ev;
             document.getElementById('detail-title').textContent = ev.title;
             document.getElementById('detail-author').textContent = ev.author;
-            document.getElementById('detail-badge').textContent = ev.category;
+            document.getElementById('detail-badge').textContent = CATEGORY_SHORT[ev.category] || ev.category;
             document.getElementById('detail-cover').style.backgroundColor = ev.color;
+
+            const platRow = document.getElementById('detail-platform-row');
+            platRow.classList.toggle('hidden', !(ev.category === BLOG && ev.platform));
+            document.getElementById('detail-platform').textContent = ev.platform;
+
+            const memoRow = document.getElementById('detail-memo-row');
+            memoRow.classList.toggle('hidden', !ev.memo);
+            document.getElementById('detail-memo').textContent = ev.memo;
+
+            document.getElementById('detail-actions').classList.toggle('hidden', !ev.canEdit);
 
             const dOpt = { month: 'short', day: 'numeric', weekday: 'short' };
             const tOpt = { hour: '2-digit', minute: '2-digit' };
@@ -657,7 +946,33 @@
             openModal('details-modal');
         }
 
-        // ===== 저장 =====
+        function startEdit() {
+            if (!currentDetail) return;
+            closeModal('details-modal');
+            openEditModal(currentDetail);
+        }
+
+        async function deleteCurrent() {
+            if (!currentDetail || !confirm(`'${currentDetail.title}' 일정을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) return;
+            const btn = document.getElementById('btn-delete');
+            btn.disabled = true;
+            try {
+                await api('deleteEvent', { id: currentDetail.id });
+                closeModal('details-modal');
+                refreshAll();
+            } catch (err) {
+                alert('삭제 실패: ' + err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function refreshAll() {
+            calendar.refetchEvents();
+            loadSummary();
+        }
+
+        // ===== 저장 (등록 / 수정) =====
         async function saveEvent() {
             const titleEl = document.getElementById('ev-title');
             const errEl = document.getElementById('add-error');
@@ -666,11 +981,20 @@
             const startVal = document.getElementById('ev-start').value;
             const endVal = document.getElementById('ev-end').value;
             const allDay = document.getElementById('ev-allday').checked;
+            const category = document.getElementById('ev-category').value;
+            const memo = document.getElementById('ev-memo').value.trim();
 
             const showError = msg => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
             errEl.classList.add('hidden');
 
             if (!title) { titleEl.style.borderColor = '#e50914'; setTimeout(() => titleEl.style.borderColor = '#404040', 2000); return showError('제목을 입력하세요.'); }
+
+            let platform = '';
+            if (category === BLOG) {
+                const sel = document.getElementById('ev-platform').value;
+                platform = sel === '__etc__' ? document.getElementById('ev-platform-custom').value.trim() : sel;
+                if (!platform) return showError('협찬 플랫폼을 입력하세요.');
+            }
             if (!startVal || !endVal) return showError('시작/종료 시간을 입력하세요.');
 
             let start, end;
@@ -683,17 +1007,17 @@
                 start = s.toISOString(); end = e.toISOString();
             }
 
+            const label = btn.textContent;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
             btn.disabled = true;
             try {
-                await api('addEvent', { title, start, end, allDay, category: document.getElementById('ev-category').value });
+                await api(editingId ? 'updateEvent' : 'addEvent', { id: editingId, title, start, end, allDay, category, platform, memo });
                 closeModal('add-modal');
-                calendar.refetchEvents();
-                loadUpcoming();
+                refreshAll();
             } catch (err) {
                 showError('오류: ' + err.message);
             } finally {
-                btn.innerHTML = '등록하기';
+                btn.textContent = label;
                 btn.disabled = false;
             }
         }
