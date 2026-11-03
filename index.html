@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Time Schedule</title>
 
-    <!-- 분리한 API 설정 파일 불러오기 -->
-    <script src="./config.js"></script>
-
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
@@ -27,37 +24,14 @@
     </script>
 
     <style>
-        /* ===== 일렉트론 위젯용 투명/드래그 설정 ===== */
-        body { 
-            background-color: transparent; 
-            color: #ffffff; 
-            font-family: 'Inter', sans-serif; 
-            margin: 0;
-            overflow: hidden; /* 위젯의 깔끔함을 위해 전체 스크롤 숨김 */
-        }
-        
-        #login-screen, #main-app {
-            background-color: rgba(20, 20, 20, 0.95); /* 반투명 다크 배경 */
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            margin: 10px; /* 그림자가 잘리지 않도록 여백 확보 */
-            height: calc(100vh - 20px);
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        /* 상단 헤더를 마우스로 잡고 이동할 수 있도록 드래그 영역 설정 */
-        header { -webkit-app-region: drag; }
-        /* 헤더 내부의 클릭 가능한 요소들은 드래그 예외 처리 */
-        header div, header button, header #user-profile { -webkit-app-region: no-drag; }
-
+        body { background-color: #141414; color: #ffffff; font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-track { background: #141414; }
         ::-webkit-scrollbar-thumb { background: #404040; border-radius: 4px; }
 
         /* ===== FullCalendar 다크 테마 ===== */
         :root {
-            --fc-page-bg-color: transparent;
+            --fc-page-bg-color: #141414;
             --fc-border-color: #2f2f2f;
             --fc-neutral-bg-color: #1c1c1c;
             --fc-button-text-color: #ffffff;
@@ -125,23 +99,21 @@
 <body>
 
     <!-- 1. 로그인 화면 -->
-    <div id="login-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-500 px-4 text-center">
+    <div id="login-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#141414] transition-opacity duration-500 px-4 text-center">
         <h1 class="text-4xl md:text-6xl font-black text-[#e50914] mb-2 tracking-tighter uppercase">Time Schedule</h1>
         <p class="text-gray-400 mb-10 text-base md:text-lg">팀 캘린더에 입장하려면 로그인하세요</p>
-        
-        <!-- 하드코딩된 Client ID 대신 config.js 값을 사용 -->
-        <div id="g_id_onload" data-auto_select="true" data-callback="handleCredentialResponse"></div>
-        <script>
-            document.getElementById('g_id_onload').setAttribute('data-client_id', CONFIG.CLIENT_ID);
-        </script>
-        
+        <div id="g_id_onload"
+             data-client_id="478451428995-2crtpdco8bt3mnm9vp19upqabeqbtj89.apps.googleusercontent.com"
+             data-auto_select="true"
+             data-callback="handleCredentialResponse">
+        </div>
         <div class="g_id_signin" data-type="standard" data-theme="filled_black" data-size="large"></div>
         <p id="login-error" class="text-red-400 text-sm mt-6 hidden"></p>
     </div>
 
     <!-- 2. 메인 앱 -->
-    <div id="main-app" class="hidden flex-col">
-        <header class="w-full bg-black/50 h-14 px-4 md:px-6 flex justify-between items-center border-b border-[#2f2f2f] shrink-0">
+    <div id="main-app" class="hidden flex-col h-[100dvh]">
+        <header class="w-full bg-black h-14 px-4 md:px-6 flex justify-between items-center border-b border-[#2f2f2f] shrink-0">
             <div class="text-netRed font-black text-2xl tracking-tighter uppercase">NetCalendar</div>
             <div id="user-profile" class="relative"></div>
         </header>
@@ -153,7 +125,7 @@
                 <div id="calendar" class="w-full md:flex-1 md:min-h-0"></div>
             </section>
 
-            <aside class="w-full md:w-[30%] md:h-full bg-[#181818]/50 md:border-l border-t md:border-t-0 border-[#2f2f2f] p-4 md:p-6 flex flex-col md:overflow-y-auto">
+            <aside class="w-full md:w-[30%] md:h-full bg-[#181818] md:border-l border-t md:border-t-0 border-[#2f2f2f] p-4 md:p-6 flex flex-col md:overflow-y-auto">
                 <!-- 모바일 전용: 선택한 날짜의 일정 -->
                 <div id="day-section" class="md:hidden mb-6">
                     <div class="flex items-center justify-between mb-3">
@@ -177,13 +149,13 @@
         </main>
 
         <button onclick="openAddModal(selectedDate)" aria-label="일정 추가"
-                class="md:hidden fixed bottom-5 right-5 w-14 h-14 rounded-full bg-netRed hover:bg-[#b1060e] text-white text-2xl shadow-xl z-40 flex items-center justify-center" style="-webkit-app-region: no-drag;">
+                class="md:hidden fixed bottom-5 right-5 w-14 h-14 rounded-full bg-netRed hover:bg-[#b1060e] text-white text-2xl shadow-xl z-40 flex items-center justify-center">
             <i class="fa-solid fa-plus"></i>
         </button>
     </div>
 
     <!-- 3. 모달: 일정 등록 / 수정 -->
-    <div id="add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0" style="-webkit-app-region: no-drag;">
+    <div id="add-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0">
         <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-md border border-gray-700 overflow-hidden max-h-[95dvh] overflow-y-auto">
             <div class="p-5 border-b border-[#2f2f2f] flex justify-between items-center bg-[#222]">
                 <h3 id="modal-title" class="text-xl font-bold">새 일정 등록</h3>
@@ -247,7 +219,7 @@
     </div>
 
     <!-- 4. 모달: 일정 상세 -->
-    <div id="details-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0" style="-webkit-app-region: no-drag;">
+    <div id="details-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0">
         <div class="bg-[#181818] rounded-lg shadow-2xl w-full max-w-sm overflow-hidden border border-gray-700 max-h-[95dvh] overflow-y-auto">
             <div class="h-32 w-full relative bg-[#2f2f2f] flex flex-col justify-end p-5" id="detail-cover">
                 <button onclick="closeModal('details-modal')" aria-label="닫기" class="absolute top-4 right-4 w-8 h-8 bg-black/50 rounded-full text-white hover:bg-white hover:text-black transition flex items-center justify-center z-20"><i class="fa-solid fa-xmark"></i></button>
@@ -283,8 +255,8 @@
     </div>
 
     <script>
-        // ===== 하드코딩 제거: config.js 에서 가져옴 =====
-        const GAS_API_URL = CONFIG.GAS_API_URL;
+        // ===== 설정 =====
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyEp13vz9Ey2JtP_iuNqoeZPnAySDUFiy3OT3Afu3YEz-i4knIXYRYQn4hnRF7wEr4g/exec";
         const CRED_KEY = 'nc_credential';
 
         const BLOG = '블로그 협찬';
@@ -595,7 +567,7 @@
                 </div>`;
         }
 
-        // ===== 임박한 일정 + 대시보드 데이터 =====
+        // ===== 임박한 일정 + 대시보드 데이터 (이번 달/이번 주/오늘~90일을 한 번에) =====
         async function loadSummary() {
             try {
                 const t = startOfDay(new Date());
@@ -672,16 +644,19 @@
             const evs = allEvents.filter(ev => overlaps(ev, s, e));
             const total = evs.length;
 
+            // 종류별
             const by = { '회사 일정': 0, '개인 일정': 0, [BLOG]: 0 };
             evs.forEach(ev => { if (by[ev.category] !== undefined) by[ev.category]++; });
             const pct = n => total ? Math.round(n / total * 100) : 0;
 
+            // 블로그 플랫폼별
             const plat = { '리뷰노트': 0, '강남맛집': 0, '기타': 0 };
             evs.filter(ev => ev.category === BLOG).forEach(ev => {
                 plat[PRESET_PLATFORMS.includes(ev.platform) ? ev.platform : '기타']++;
             });
             const platMax = Math.max(1, ...Object.values(plat));
 
+            // 멤버별 (공통 일정인 블로그 협찬 제외)
             const members = {};
             evs.filter(ev => ev.category !== BLOG).forEach(ev => {
                 const m = members[ev.author] || (members[ev.author] = { count: 0, color: ev.color });
@@ -690,6 +665,7 @@
             const memberList = Object.entries(members).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
             const memberMax = Math.max(1, ...memberList.map(([, v]) => v.count));
 
+            // 일자별
             const days = Math.round((e - s) / 86400000);
             const counts = [];
             for (let i = 0; i < days; i++) {
