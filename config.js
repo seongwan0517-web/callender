@@ -1,6 +1,5 @@
-// config.js (이 파일은 .gitignore에 추가하여 배포에서 제외하세요)
+// config.js
 const CONFIG = {
-    GAS_API_URL: "https://script.google.com/macros/s/.../exec",
+    GAS_API_URL: "https://script.google.com/macros/s/AKfycbyEp13vz9Ey2JtP_iuNqoeZPnAySDUFiy3OT3Afu3YEz-i4knIXYRYQn4hnRF7wEr4g/exec",
     CLIENT_ID: "478451428995-2crtpdco8bt3mnm9vp19upqabeqbtj89.apps.googleusercontent.com"
 };
-
