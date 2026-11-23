@@ -1,0 +1,4 @@
+# 로컬 도구 설정 / Firebase 배포 캐시
+.claude/
+.firebase/
+firebase-debug.log

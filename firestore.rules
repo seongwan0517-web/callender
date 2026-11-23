@@ -1,0 +1,87 @@
+rules_version = '2';
+
+// NetCalendar (Time Schedule) Firestore 보안 규칙
+// - config/access   : 로그인 허용 멤버 목록 { emails: [...] } (관리자만 수정 — 앱의 '멤버 관리')
+// - events/{id}     : 일정 (작성자 본인 또는 관리자만 수정/삭제)
+// - users/{email}   : 사람별 고정 색 (본인 문서만 작성)
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== 누가 들어올 수 있나 =====
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function myEmail() { return request.auth.token.email; }
+
+    // 모든 일정을 수정/삭제할 수 있는 관리자
+    function isAdmin() {
+      return signedIn() && myEmail() in ['seongwan0517@gmail.com'];
+    }
+
+    // 관리자 + config/access 의 emails 목록에 있는 사람만 사용 가능
+    function isMember() {
+      return isAdmin() || (signedIn()
+        && exists(/databases/$(database)/documents/config/access)
+        && myEmail() in get(/databases/$(database)/documents/config/access).data.emails);
+    }
+
+    match /config/access {
+      allow read: if isMember();
+      allow write: if isAdmin()
+        && request.resource.data.keys().hasOnly(['emails'])
+        && request.resource.data.emails is list
+        && request.resource.data.emails.size() <= 100;
+    }
+
+    // ===== 일정 데이터 검증 =====
+    function validEvent(d) {
+      return d.keys().hasOnly(['title', 'category', 'platform', 'memo', 'allDay',
+                               'start', 'end', 'startTs', 'endTs',
+                               'authorEmail', 'authorName', 'createdAt', 'updatedAt'])
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 100
+        && d.category in ['회사 일정', '개인 일정', '블로그 협찬']
+        && d.platform is string && d.platform.size() <= 30
+        && (d.category != '블로그 협찬' || d.platform.size() > 0)
+        && d.memo is string && d.memo.size() <= 500
+        && d.allDay is bool
+        && d.start is string && d.end is string
+        && d.startTs is timestamp && d.endTs is timestamp && d.endTs >= d.startTs
+        && d.authorEmail is string
+        && d.authorName is string && d.authorName.size() <= 100
+        && d.updatedAt == request.time;
+    }
+
+    function canEdit() {
+      return isAdmin() || resource.data.authorEmail == myEmail();
+    }
+
+    match /events/{id} {
+      allow read: if isMember();
+
+      allow create: if isMember()
+        && validEvent(request.resource.data)
+        && request.resource.data.authorEmail == myEmail()
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isMember() && canEdit()
+        && validEvent(request.resource.data)
+        && request.resource.data.authorEmail == resource.data.authorEmail
+        && request.resource.data.authorName == resource.data.authorName
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isMember() && canEdit();
+    }
+
+    match /users/{userEmail} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && userEmail == myEmail()
+        && request.resource.data.keys().hasOnly(['name', 'color'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100
+        && request.resource.data.color is string
+        && request.resource.data.color.matches('^#[0-9a-fA-F]{6}$');
+    }
+  }
+}
