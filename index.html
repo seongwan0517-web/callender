@@ -109,6 +109,12 @@
         .opt:hover { color: var(--text); }
         .opt.on { background: rgba(155, 89, 182, .25); color: #fff; border-color: var(--blog); }
         .opt.add { border-style: dashed; }
+        .time-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+        .time-grid button { padding: 10px 0; border-radius: 10px; font-size: 14px; font-weight: 700; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); transition: all .12s; }
+        .time-grid button:hover { color: var(--text); }
+        .time-grid button.on { background: var(--blog); color: #fff; border-color: var(--blog); }
+        .time-grid.disabled { opacity: .35; pointer-events: none; }
+        #ampm-am.active, #ampm-pm.active { background: var(--surface-3); color: var(--text); box-shadow: inset 0 0 0 1px #4a4a52; }
         .opt-input { display: inline-flex; gap: 6px; }
         .opt-input input { width: 130px; background: var(--surface-2); border: 1px solid var(--blog); color: var(--text); border-radius: 999px; padding: 7px 12px; font-size: 14px; outline: none; }
         .money-row { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; }
@@ -156,6 +162,13 @@
         .fc .fc-day-other .fc-daygrid-day-number { opacity: .3; }
         .fc .fc-day-today .fc-daygrid-day-number { background: var(--brand); color: #fff !important; border-radius: 999px; min-width: 26px; text-align: center; margin: 4px; padding: 3px 7px; }
         .fc .fc-event { cursor: pointer; border: none; }
+        .fc .fc-event.ev-done { opacity: .45; }
+        .fc .fc-event.ev-done .fc-event-title { text-decoration: line-through; }
+        .ev-card.is-done { opacity: .6; }
+        .ev-card.is-done .ev-title { text-decoration: line-through; text-decoration-color: rgba(255,255,255,.4); }
+        .done-btn { width: 40px; height: 40px; border-radius: 999px; border: 2px solid #52525b; color: transparent; display: flex; align-items: center; justify-content: center; flex: none; transition: all .15s; }
+        .done-btn:hover { border-color: #4ade80; color: #4ade80; }
+        .done-btn.on { background: #22c55e; border-color: #22c55e; color: #fff; }
         .fc .fc-daygrid-block-event { border-radius: 6px; padding: 2px 7px; }
         .fc .fc-daygrid-event { font-size: 13px; font-weight: 600; margin-top: 2px; }
         .fc .fc-daygrid-dot-event { padding: 2px 4px; border-radius: 6px; }
@@ -180,7 +193,7 @@
             #calendar { flex: 1; min-height: 0; }
             .side { width: 340px; flex: none; border-left: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
             .side .panel { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 20px; }
-            body[data-side="home"] #panel-home, body[data-side="stats"] #panel-stats { display: block; }
+            body[data-side="home"] #panel-home, body[data-side="blog"] #panel-blog, body[data-side="stats"] #panel-stats { display: block; }
             #panel-me { display: none; }
         }
         @media (min-width: 1280px) {
@@ -195,12 +208,13 @@
             .panel { display: none; padding: 16px; }
             body[data-tab="home"] #panel-home,
             body[data-tab="calendar"] #panel-calendar,
+            body[data-tab="blog"] #panel-blog,
             body[data-tab="stats"] #panel-stats,
             body[data-tab="me"] #panel-me { display: block; }
 
             .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
                       padding-bottom: env(safe-area-inset-bottom); background: rgba(24, 24, 27, .96); backdrop-filter: blur(10px);
-                      border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); }
+                      border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, 1fr); }
             .tabbar button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--faint); font-size: 11px; font-weight: 700; }
             .tabbar button i { font-size: 19px; }
             .tabbar button.active { color: var(--text); }
@@ -280,8 +294,9 @@
 
             <aside class="side">
                 <div class="desk-only shrink-0 px-5 pt-5">
-                    <div class="seg" style="grid-template-columns: repeat(2, 1fr)">
+                    <div class="seg">
                         <button data-side-btn="home" onclick="setSide('home')">임박한 일정</button>
+                        <button data-side-btn="blog" onclick="setSide('blog')">협찬 관리</button>
                         <button data-side-btn="stats" onclick="setSide('stats')">일정 분석</button>
                     </div>
                 </div>
@@ -300,6 +315,15 @@
                     </div>
                 </section>
 
+                <!-- 협찬 관리 (블로그 협찬만) -->
+                <section id="panel-blog" class="panel">
+                    <h2 class="text-xl font-extrabold mb-1">협찬 관리</h2>
+                    <p class="text-sm text-gray-400 mb-4">블로그 협찬만 모아 봐요. 글을 올렸으면 ✓ 를 눌러 완료하세요.</p>
+                    <div id="blog-stats" class="grid grid-cols-3 gap-2.5 mb-4"></div>
+                    <div class="chip-row mb-4" id="blog-status-chips"></div>
+                    <div id="blog-list"><div class="empty"><i class="fa-solid fa-spinner fa-spin mr-2"></i> 불러오는 중...</div></div>
+                </section>
+
                 <!-- 통계 -->
                 <section id="panel-stats" class="panel">
                     <div id="dashboard"></div>
@@ -315,6 +339,7 @@
         <nav class="tabbar mobile-only">
             <button data-tab-btn="home" onclick="setTab('home')"><i class="fa-solid fa-house"></i>홈</button>
             <button data-tab-btn="calendar" onclick="setTab('calendar')"><i class="fa-regular fa-calendar"></i>캘린더</button>
+            <button data-tab-btn="blog" onclick="setTab('blog')"><i class="fa-solid fa-pen-nib"></i>협찬</button>
             <button data-tab-btn="stats" onclick="setTab('stats')"><i class="fa-solid fa-chart-simple"></i>통계</button>
             <button data-tab-btn="me" onclick="setTab('me')"><i class="fa-regular fa-user"></i>내 정보</button>
         </nav>
@@ -349,24 +374,63 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="min-w-0">
-                        <span class="label" id="lbl-start">시작</span>
-                        <input type="datetime-local" id="ev-start" class="net-input">
+                <!-- 회사/개인 일정: 시작·종료 -->
+                <div id="gen-when" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="min-w-0">
+                            <span class="label" id="lbl-start">시작</span>
+                            <input type="datetime-local" id="ev-start" class="net-input">
+                        </div>
+                        <div class="min-w-0">
+                            <span class="label" id="lbl-end">종료</span>
+                            <input type="datetime-local" id="ev-end" class="net-input">
+                        </div>
                     </div>
-                    <div class="min-w-0">
-                        <span class="label" id="lbl-end">종료</span>
-                        <input type="datetime-local" id="ev-end" class="net-input">
-                    </div>
+                    <label class="flex items-center gap-2 cursor-pointer w-max">
+                        <input type="checkbox" id="ev-allday" class="w-4 h-4 accent-netRed cursor-pointer" onchange="applyAllDayMode()">
+                        <span class="text-sm font-semibold">종일 일정</span>
+                    </label>
                 </div>
-
-                <label class="flex items-center gap-2 cursor-pointer w-max">
-                    <input type="checkbox" id="ev-allday" class="w-4 h-4 accent-netRed cursor-pointer" onchange="applyAllDayMode()">
-                    <span class="text-sm font-semibold">종일 일정</span>
-                </label>
 
                 <!-- 블로그 협찬 선택 시에만 표시 -->
                 <div id="blog-box" class="hidden space-y-4 rounded-2xl p-4" style="background: rgba(155,89,182,.08); border: 1px solid rgba(155,89,182,.35)">
+                    <div>
+                        <span class="label">방문 날짜</span>
+                        <input type="date" id="ev-visit-date" class="net-input">
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="label mb-0">방문 시간</span>
+                            <span id="time-summary" class="text-sm font-bold text-purple-300"></span>
+                        </div>
+                        <div class="flex gap-2 mb-2">
+                            <button type="button" class="opt" id="time-none" onclick="setVisitTime(null)">시간 미정</button>
+                            <div class="seg flex-1" style="grid-template-columns: repeat(2, 1fr); padding: 3px">
+                                <button type="button" id="ampm-am" onclick="setAmPm('am')">오전</button>
+                                <button type="button" id="ampm-pm" onclick="setAmPm('pm')">오후</button>
+                            </div>
+                        </div>
+                        <div id="hour-grid" class="time-grid"></div>
+                        <div id="minute-grid" class="time-grid mt-2" style="grid-template-columns: repeat(4, 1fr)"></div>
+                    </div>
+                    <div id="duration-box">
+                        <span class="label">머무는 시간</span>
+                        <div id="duration-grid" class="time-grid" style="grid-template-columns: repeat(4, 1fr)"></div>
+                    </div>
+                    <div>
+                        <span class="label">방문 주소</span>
+                        <div class="flex gap-2">
+                            <input type="text" id="ev-address" maxlength="200" class="net-input" placeholder="주소 검색을 누르거나 직접 입력" autocomplete="off">
+                            <button type="button" onclick="openAddressSearch()" class="btn-ghost px-3 shrink-0 text-sm"><i class="fa-solid fa-magnifying-glass mr-1"></i>검색</button>
+                        </div>
+                        <div id="postcode-box" class="hidden mt-2">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-xs text-gray-400">도로명·건물명·지번으로 검색해서 고르세요</span>
+                                <button type="button" onclick="closeAddressSearch()" class="text-xs font-bold text-gray-300 hover:text-white px-2 py-1"><i class="fa-solid fa-xmark mr-1"></i>닫기</button>
+                            </div>
+                            <div id="postcode-wrap" class="rounded-xl overflow-hidden" style="height: 420px; border: 1px solid var(--line)"></div>
+                        </div>
+                    </div>
                     <div>
                         <span class="label">제출 마감일</span>
                         <input type="date" id="ev-deadline" class="net-input">
@@ -429,12 +493,25 @@
             <div class="p-5 space-y-4 text-[15px]">
                 <div class="flex items-center gap-3"><i class="fa-regular fa-clock text-netRed w-5 text-center"></i><p id="detail-time" class="font-semibold"></p></div>
                 <div class="flex items-center gap-3"><i class="fa-regular fa-user text-netRed w-5 text-center"></i><p id="detail-author" class="font-semibold"></p></div>
+                <div id="detail-address-row" class="hidden space-y-2">
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-location-dot text-netRed w-5 text-center mt-1"></i>
+                        <p id="detail-address" class="font-semibold flex-1 break-words"></p>
+                    </div>
+                    <div id="detail-map" class="hidden w-full h-44 rounded-xl overflow-hidden"></div>
+                    <button onclick="openNaverMap(currentDetail && currentDetail.address)" class="w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2" style="background:#03c75a">
+                        <span class="font-black">N</span> 네이버 지도로 보기
+                    </button>
+                </div>
                 <div id="detail-deadline-row" class="hidden flex items-center gap-3"><i class="fa-solid fa-flag-checkered text-netRed w-5 text-center"></i><p id="detail-deadline" class="font-semibold"></p></div>
                 <div id="detail-platform-row" class="hidden flex items-center gap-3"><i class="fa-solid fa-store text-netRed w-5 text-center"></i><p id="detail-platform" class="font-semibold"></p></div>
                 <div id="detail-content-row" class="hidden flex items-center gap-3"><i class="fa-solid fa-photo-film text-netRed w-5 text-center"></i><p id="detail-content" class="font-semibold"></p></div>
                 <div id="detail-link-row" class="hidden flex items-center gap-3 min-w-0"><i class="fa-solid fa-link text-netRed w-5 text-center"></i><a id="detail-link" target="_blank" rel="noopener noreferrer" class="font-semibold text-sky-400 underline truncate"></a></div>
                 <div id="detail-money-row" class="hidden rounded-xl p-3 space-y-1.5 text-sm" style="background: var(--surface-2)"></div>
                 <div id="detail-memo-row" class="hidden flex items-start gap-3"><i class="fa-regular fa-note-sticky text-netRed w-5 text-center mt-1"></i><p id="detail-memo" class="text-gray-200 whitespace-pre-wrap break-words text-sm leading-relaxed"></p></div>
+            </div>
+            <div id="detail-done-wrap" class="hidden px-5 pb-3">
+                <button onclick="toggleDoneCurrent()" id="btn-done" class="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition"></button>
             </div>
             <div id="detail-actions" class="hidden p-5 pt-0 flex gap-3">
                 <button onclick="startEdit()" class="btn-primary flex-1 py-3.5"><i class="fa-solid fa-pen mr-1"></i> 수정</button>
@@ -623,8 +700,12 @@
                     productValue: Number(d.productValue) || 0,
                     adFee: Number(d.adFee) || 0,
                     myCost: Number(d.myCost) || 0,
+                    address: d.address || '',
+                    done: !!d.done,
+                    doneAt: d.doneAt || '',
                     canEdit: isAdmin() || d.authorEmail === currentUser.email
-                }
+                },
+                classNames: d.done ? ['ev-done'] : []
             };
         }
 
@@ -639,7 +720,8 @@
                 end: toDateStr(addDays(parseLocal(p.deadline), 1)),
                 backgroundColor: DEADLINE_COLOR,
                 borderColor: DEADLINE_COLOR,
-                extendedProps: { ...p, isDeadline: true, srcId: ev.id, srcStart: ev.start, srcEnd: ev.end, srcAllDay: ev.allDay }
+                extendedProps: { ...p, isDeadline: true, srcId: ev.id, srcStart: ev.start, srcEnd: ev.end, srcAllDay: ev.allDay },
+                classNames: p.done ? ['ev-done'] : []
             };
         }
 
@@ -666,7 +748,7 @@
 
         // 폼 값 → 저장할 문서. 종일 일정은 '포함' 종료일을 받아 다음 날(exclusive)로 바꿔 저장
         function buildEventData({ title, start, end, allDay, category, platform, memo,
-                                  deadline = '', link = '', contentTypes = [], productValue = 0, adFee = 0, myCost = 0 }) {
+                                  deadline = '', link = '', contentTypes = [], productValue = 0, adFee = 0, myCost = 0, address = '' }) {
             const blog = category === BLOG;
             let startDate, endDate, startStr, endStr;
             if (allDay) {
@@ -690,6 +772,7 @@
                 productValue: blog ? productValue : 0,
                 adFee: blog ? adFee : 0,
                 myCost: blog ? myCost : 0,
+                address: blog ? address : '',
                 start: startStr, end: endStr,
                 startTs: ts(startDate), endTs: ts(endDate),
                 updatedAt: serverNow()
@@ -701,7 +784,16 @@
                 ...buildEventData(input),
                 authorEmail: currentUser.email,   // 보안 규칙이 로그인한 계정과 같은지 검사
                 authorName: currentUser.name,
+                done: false,
+                doneAt: '',
                 createdAt: serverNow()
+            });
+        }
+
+        // 협찬 완료 표시 (블로그 작성까지 끝남)
+        function setDoneDoc(id, done) {
+            return db.collection('events').doc(id).update({
+                done, doneAt: done ? toDateStr(new Date()) : '', updatedAt: serverNow()
             });
         }
         const updateEventDoc = (id, input) => db.collection('events').doc(id).update(buildEventData(input));
@@ -955,6 +1047,124 @@
             renderOptionChips();
         }
 
+        // ===== 협찬 방문 시간 선택 (오전/오후 → 시 → 분 버튼) =====
+        const DURATIONS = [{ m: 30, t: '30분' }, { m: 60, t: '1시간' }, { m: 90, t: '1시간 30분' }, { m: 120, t: '2시간' }];
+        let visitTime = null;        // { h: 0~23, m: 0~59 } / null = 시간 미정(종일)
+        let visitAmPm = 'pm';
+        let visitDuration = 60;
+
+        const fmtHM = (h, m) => `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${pad(m)}`;
+
+        function renderTimePicker() {
+            const hours = visitAmPm === 'am' ? [6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5] : [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+            document.getElementById('hour-grid').innerHTML = hours.map(h =>
+                `<button type="button" class="${visitTime && visitTime.h === h ? 'on' : ''}" onclick="setVisitHour(${h})">${h % 12 === 0 ? 12 : h % 12}시</button>`).join('');
+            document.getElementById('minute-grid').innerHTML = [0, 10, 20, 30, 40, 50].slice(0, 6).map(m =>
+                `<button type="button" class="${visitTime && visitTime.m === m ? 'on' : ''}" onclick="setVisitMinute(${m})">${pad(m)}분</button>`).join('');
+            document.getElementById('minute-grid').style.gridTemplateColumns = 'repeat(6, 1fr)';
+            document.getElementById('minute-grid').classList.toggle('disabled', !visitTime);
+            document.getElementById('duration-grid').innerHTML = DURATIONS.map(d =>
+                `<button type="button" class="${visitDuration === d.m ? 'on' : ''}" onclick="setVisitDuration(${d.m})">${d.t}</button>`).join('');
+            document.getElementById('duration-box').classList.toggle('hidden', !visitTime);
+            document.getElementById('time-none').classList.toggle('on', !visitTime);
+            document.getElementById('ampm-am').classList.toggle('active', visitAmPm === 'am');
+            document.getElementById('ampm-pm').classList.toggle('active', visitAmPm === 'pm');
+            let sum = '시간 미정 (종일)';
+            if (visitTime) {
+                const endMin = visitTime.h * 60 + visitTime.m + visitDuration;
+                sum = `${fmtHM(visitTime.h, visitTime.m)} ~ ${fmtHM(Math.floor(endMin / 60) % 24, endMin % 60)}`;
+            }
+            document.getElementById('time-summary').textContent = sum;
+        }
+
+        function setAmPm(p) { visitAmPm = p; renderTimePicker(); }
+        function setVisitTime(t) { visitTime = t; if (t) visitAmPm = t.h < 12 ? 'am' : 'pm'; renderTimePicker(); }
+        function setVisitHour(h) { setVisitTime({ h, m: visitTime ? visitTime.m : 0 }); }
+        function setVisitMinute(m) { if (visitTime) setVisitTime({ h: visitTime.h, m }); }
+        function setVisitDuration(m) { visitDuration = m; renderTimePicker(); }
+
+        // ===== 주소 검색 (카카오(다음) 우편번호 서비스, 무료·키 불필요) =====
+        function loadScriptOnce(src) {
+            return new Promise((resolve, reject) => {
+                if (document.querySelector(`script[src="${src}"]`)) return resolve();
+                const s = document.createElement('script');
+                s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('스크립트를 불러오지 못했습니다.'));
+                document.head.appendChild(s);
+            });
+        }
+
+        async function openAddressSearch() {
+            const wrap = document.getElementById('postcode-wrap');
+            try {
+                await loadScriptOnce('https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js');
+            } catch (err) { alert('주소 검색을 불러오지 못했습니다. 주소를 직접 입력해 주세요.'); return; }
+            wrap.innerHTML = '';
+            const box = document.createElement('div');
+            box.style.cssText = 'width:100%;height:100%';
+            wrap.appendChild(box);
+            document.getElementById('postcode-box').classList.remove('hidden');
+            new daum.Postcode({
+                oncomplete: data => {
+                    let addr = data.roadAddress || data.jibunAddress || data.address;
+                    if (data.buildingName) addr += ` (${data.buildingName})`;
+                    document.getElementById('ev-address').value = addr;
+                    closeAddressSearch();
+                },
+                width: '100%', height: '100%'
+            }).embed(box, { q: document.getElementById('ev-address').value.trim() });
+        }
+
+        function closeAddressSearch() {
+            document.getElementById('postcode-box').classList.add('hidden');
+            document.getElementById('postcode-wrap').innerHTML = '';
+        }
+
+        // ===== 네이버 지도 =====
+        // 앱 안에 지도를 그리려면 네이버 클라우드 플랫폼 'Maps' 의 Client ID 가 필요 (도메인 등록 포함).
+        // 비워 두면 지도 그림 없이 '네이버 지도로 보기' 버튼만 표시됨.
+        const NAVER_MAP_CLIENT_ID = '';
+
+        // 휴대폰: 네이버 지도 앱을 바로 열고, 앱이 없으면 웹 지도로 / PC: 웹 지도를 새 탭으로
+        function openNaverMap(address) {
+            if (!address) return;
+            const q = encodeURIComponent(address.replace(/\s*\(.*\)\s*$/, ''));
+            const web = `https://map.naver.com/p/search/${q}`;
+            const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || isIOS();
+            if (!mobile) return window.open(web, '_blank', 'noopener');
+            const app = `nmap://search?query=${q}&appname=${encodeURIComponent(location.hostname)}`;
+            const started = Date.now();
+            const timer = setTimeout(() => {
+                if (document.visibilityState === 'visible' && Date.now() - started < 3000) location.href = web;
+            }, 1500);
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') clearTimeout(timer); }, { once: true });
+            location.href = app;
+        }
+
+        let naverMapsReady = null;
+        function loadNaverMaps() {
+            if (!NAVER_MAP_CLIENT_ID) return Promise.reject(new Error('no key'));
+            naverMapsReady = naverMapsReady || loadScriptOnce(`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_MAP_CLIENT_ID}&submodules=geocoder`);
+            return naverMapsReady;
+        }
+
+        async function renderDetailMap(address) {
+            const el = document.getElementById('detail-map');
+            el.classList.add('hidden');
+            el.innerHTML = '';
+            if (!address || !NAVER_MAP_CLIENT_ID) return;
+            try {
+                await loadNaverMaps();
+                naver.maps.Service.geocode({ query: address.replace(/\s*\(.*\)\s*$/, '') }, (status, res) => {
+                    const a = status === naver.maps.Service.Status.OK && res.v2.addresses[0];
+                    if (!a) return;
+                    el.classList.remove('hidden');
+                    const pos = new naver.maps.LatLng(Number(a.y), Number(a.x));
+                    const map = new naver.maps.Map(el, { center: pos, zoom: 16, zoomControl: false, mapDataControl: false });
+                    new naver.maps.Marker({ position: pos, map });
+                });
+            } catch (err) { console.error('네이버 지도 로드 실패', err); }
+        }
+
         // 금액 입력: 숫자만 + 천 단위 쉼표, 순이익 계산
         function onMoneyInput(el) {
             const n = parseMoney(el.value);
@@ -1065,6 +1275,7 @@
             setTab('home');
             initCalendar();
             loadSummary();
+            loadBlogList();
         }
 
         (() => {
@@ -1279,6 +1490,9 @@
                 productValue: props.productValue || 0,
                 adFee: props.adFee || 0,
                 myCost: props.myCost || 0,
+                address: props.address || '',
+                done: !!props.done,
+                doneAt: props.doneAt || '',
                 canEdit: !!props.canEdit
             };
         }
@@ -1314,10 +1528,11 @@
             const dl = !!ev.deadlineView;
             const deadlineTag = '<span class="tag" style="background: rgba(229,9,20,.18); color:#fca5a5"><i class="fa-solid fa-flag-checkered"></i> 제출 마감</span>';
             const contents = (ev.contentTypes || []).map(c => `<span class="tag" style="background: var(--surface-3); color: var(--muted)">${escapeHtml(c)}</span>`).join('');
+            const doneTag = ev.done ? '<span class="tag" style="background: rgba(34,197,94,.18); color:#4ade80"><i class="fa-solid fa-check"></i> 완료</span>' : '';
             return `
-                <div class="ev-card ${cls}" style="--c:${dl ? DEADLINE_COLOR : escapeHtml(ev.color)}" data-index="${idx}">
+                <div class="ev-card ${cls} ${ev.done ? 'is-done' : ''}" style="--c:${dl ? DEADLINE_COLOR : escapeHtml(ev.color)}" data-index="${idx}">
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">${dl ? deadlineTag : ''}${categoryTag(ev)}${contents}</div>
+                        <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">${doneTag}${dl ? deadlineTag : ''}${categoryTag(ev)}${contents}</div>
                         <div class="ev-title">${escapeHtml(ev.title)}</div>
                         <div class="ev-meta mt-1.5 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full inline-block" style="background:${escapeHtml(ev.color)}"></span>${escapeHtml(ev.author)}${!dl && ev.deadline ? ` <span class="text-gray-500">· 마감 ${Number(ev.deadline.slice(5, 7))}/${Number(ev.deadline.slice(8, 10))}</span>` : ''}</div>
                     </div>
@@ -1357,7 +1572,7 @@
                     .filter(e => e.end > now && e.start < horizon)
                     .map(e => ({ ...e, listDate: e.start }));
                 const deadlines = allEvents
-                    .filter(e => e.category === BLOG && e.deadline)
+                    .filter(e => e.category === BLOG && e.deadline && !e.done)   // 완료한 협찬은 마감 알림 카드에서 뺌
                     .map(e => ({ ...e, deadlineView: true, listDate: parseLocal(e.deadline) }))
                     .filter(e => e.listDate >= t && e.listDate < horizon);
                 upcomingEvents = [...visits, ...deadlines].sort((a, b) => a.listDate - b.listDate || (a.deadlineView ? 1 : -1));
@@ -1387,7 +1602,7 @@
                     <div class="text-2xl font-extrabold" style="${color ? `color:${color}` : ''}">${num}</div>
                     <div class="text-xs text-gray-400 font-semibold mt-0.5">${label}</div>
                 </div>`;
-            const soon = allEvents.filter(ev => ev.category === BLOG && ev.deadline
+            const soon = allEvents.filter(ev => ev.category === BLOG && ev.deadline && !ev.done
                 && parseLocal(ev.deadline) >= d0 && parseLocal(ev.deadline) < addDays(d0, 8)).length;
             document.getElementById('hero-stats').innerHTML =
                 tile(count(d0, d1), '오늘 일정', '#fff') +
@@ -1419,6 +1634,87 @@
                     : `<div class="group-head"><span class="group-date">${fmtMD(g.day)}${dd.label ? `<small>${dd.label}</small>` : ''}</span><span class="dday ${dd.hot ? 'hot' : ''}">${dd.text}</span></div>`;
                 return head + `<div class="space-y-2.5">${g.items.map(x => cardHtml(x.ev, 'upcoming-item', x.i)).join('')}</div>`;
             }).join('');
+        }
+
+        // ===== 협찬 관리 탭 (블로그 협찬만) =====
+        let blogEvents = [];
+        let blogStatus = 'todo';     // todo | overdue | done | all
+        const BLOG_STATUS = [
+            { v: 'todo', label: '진행 중' },
+            { v: 'overdue', label: '마감 지남' },
+            { v: 'done', label: '완료' },
+            { v: 'all', label: '전체' }
+        ];
+
+        async function loadBlogList() {
+            try {
+                const snap = await db.collection('events').where('category', '==', BLOG).get();
+                blogEvents = snap.docs.map(d => normalize(docToEvent(d)));
+                renderBlogList();
+            } catch (err) {
+                document.getElementById('blog-list').innerHTML = `<div class="empty text-red-400">불러오지 못했습니다.<br><span class="text-xs text-gray-500">${escapeHtml(friendlyError(err))}</span></div>`;
+            }
+        }
+
+        const isOverdue = ev => !ev.done && ev.deadline && parseLocal(ev.deadline) < startOfDay(new Date());
+        const keyDate = ev => ev.deadline ? parseLocal(ev.deadline) : ev.start;
+
+        function setBlogStatus(v) { blogStatus = v; renderBlogList(); }
+
+        function renderBlogList() {
+            const todo = blogEvents.filter(ev => !ev.done);
+            const overdue = blogEvents.filter(isOverdue);
+            const done = blogEvents.filter(ev => ev.done);
+            const tile = (num, label, color) => `
+                <div class="rounded-2xl p-3.5" style="background: var(--surface-2)">
+                    <div class="text-2xl font-extrabold" style="${color ? `color:${color}` : ''}">${num}</div>
+                    <div class="text-xs text-gray-400 font-semibold mt-0.5">${label}</div>
+                </div>`;
+            document.getElementById('blog-stats').innerHTML =
+                tile(todo.length, '진행 중', BLOG_COLOR) + tile(overdue.length, '마감 지남', overdue.length ? '#f87171' : '') + tile(done.length, '완료', '#4ade80');
+
+            const counts = { todo: todo.length, overdue: overdue.length, done: done.length, all: blogEvents.length };
+            document.getElementById('blog-status-chips').innerHTML = BLOG_STATUS.map(s =>
+                `<button class="chip ${blogStatus === s.v ? 'active' : ''}" onclick="setBlogStatus('${s.v}')">${s.label} <span class="opacity-60">${counts[s.v]}</span></button>`).join('');
+
+            let list = { todo, overdue, done, all: blogEvents }[blogStatus].slice();
+            const asc = (a, b) => keyDate(a) - keyDate(b);
+            const desc = (a, b) => (b.doneAt || '').localeCompare(a.doneAt || '') || (b.start - a.start);
+            if (blogStatus === 'done') list.sort(desc);
+            else if (blogStatus === 'all') list = [...list.filter(e => !e.done).sort(asc), ...list.filter(e => e.done).sort(desc)];
+            else list.sort(asc);
+
+            const box = document.getElementById('blog-list');
+            if (!list.length) {
+                box.innerHTML = `<div class="empty">${{ todo: '진행 중인 협찬이 없어요 🎉', overdue: '마감 지난 협찬이 없어요', done: '아직 완료한 협찬이 없어요', all: '등록된 협찬이 없어요' }[blogStatus]}</div>`;
+                return;
+            }
+            box.innerHTML = `<div class="space-y-2.5">${list.map(ev => blogCardHtml(ev, blogEvents.indexOf(ev))).join('')}</div>`;
+        }
+
+        function blogCardHtml(ev, idx) {
+            const md = d => `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`;
+            const visit = `방문 ${md(ev.start)}${ev.allDay ? '' : ' ' + fmtTime(ev.start)}`;
+            let status = '';
+            if (ev.done) status = `<span class="tag" style="background: rgba(34,197,94,.18); color:#4ade80"><i class="fa-solid fa-check"></i> 완료${ev.doneAt ? ' ' + Number(ev.doneAt.slice(5, 7)) + '/' + Number(ev.doneAt.slice(8, 10)) : ''}</span>`;
+            else if (ev.deadline) {
+                const d = parseLocal(ev.deadline);
+                const diff = Math.round((d - startOfDay(new Date())) / 86400000);
+                const txt = diff < 0 ? `마감 ${-diff}일 지남` : diff === 0 ? '오늘 마감' : `마감 D-${diff}`;
+                const hot = diff <= 3;
+                status = `<span class="tag" style="${hot ? 'background: rgba(229,9,20,.2); color:#fca5a5' : 'background: var(--surface-3); color: var(--muted)'}"><i class="fa-solid fa-flag-checkered"></i> ${txt}</span>`;
+            }
+            const contents = (ev.contentTypes || []).map(c => `<span class="tag" style="background: var(--surface-3); color: var(--muted)">${escapeHtml(c)}</span>`).join('');
+            return `
+                <div class="ev-card blog-item ${ev.done ? 'is-done' : ''}" style="--c:${ev.done ? '#22c55e' : BLOG_COLOR}" data-index="${idx}">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">${status}${categoryTag(ev)}${contents}</div>
+                        <div class="ev-title">${escapeHtml(ev.title)}</div>
+                        <div class="ev-meta mt-1.5">${escapeHtml(visit)}${ev.deadline ? ` · 마감 ${md(parseLocal(ev.deadline))}` : ''}</div>
+                        ${ev.address ? `<div class="ev-meta mt-0.5 truncate"><i class="fa-solid fa-location-dot mr-1 text-gray-500"></i>${escapeHtml(ev.address)}</div>` : ''}
+                    </div>
+                    ${ev.canEdit ? `<button class="done-btn ${ev.done ? 'on' : ''} self-center" data-done-index="${idx}" aria-label="완료 표시"><i class="fa-solid fa-check"></i></button>` : ''}
+                </div>`;
         }
 
         // ===== 일정 분석 대시보드 =====
@@ -1601,6 +1897,10 @@
 
         // ===== 클릭 처리 =====
         document.addEventListener('click', e => {
+            const doneBtn = e.target.closest('[data-done-index]');
+            if (doneBtn) return toggleDone(blogEvents[Number(doneBtn.dataset.doneIndex)], doneBtn);
+            const bi = e.target.closest('.blog-item');
+            if (bi) return openDetailsModal(blogEvents[Number(bi.dataset.index)]);
             const up = e.target.closest('.upcoming-item');
             if (up) return openDetailsModal(upcomingEvents[Number(up.dataset.index)]);
             const ag = e.target.closest('.agenda-item');
@@ -1647,10 +1947,15 @@
             const blog = v === BLOG;
             document.querySelectorAll('#cat-seg button').forEach(b => b.classList.toggle('active', b.dataset.v === v));
             document.getElementById('blog-box').classList.toggle('hidden', !blog);
+            document.getElementById('gen-when').classList.toggle('hidden', blog);
             document.getElementById('ev-title').placeholder = blog ? '스케줄 제목 (예: 강남 맛집 체험)' : '일정 제목';
-            document.getElementById('lbl-start').textContent = blog ? '체험(방문) 시작' : '시작';
-            document.getElementById('lbl-end').textContent = blog ? '체험(방문) 종료' : '종료';
-            if (blog) renderOptionChips();
+            if (blog) {
+                // 처음 협찬으로 바꿀 때는 위에서 고른 시작 날짜를 방문 날짜로 가져옴
+                const vd = document.getElementById('ev-visit-date');
+                if (!vd.value) vd.value = (document.getElementById('ev-start').value || toDateStr(new Date())).slice(0, 10);
+                renderOptionChips();
+                renderTimePicker();
+            }
         }
 
         function applyAllDayMode() {
@@ -1667,12 +1972,19 @@
         function resetForm() {
             document.getElementById('ev-title').value = '';
             document.getElementById('ev-memo').value = '';
-            document.getElementById('ev-category').value = catFilter !== 'all' ? catFilter : '회사 일정';
+            const inBlogView = (isMobile() ? document.body.dataset.tab : document.body.dataset.side) === 'blog';
+            document.getElementById('ev-category').value = inBlogView ? BLOG : (catFilter !== 'all' ? catFilter : '회사 일정');
             document.getElementById('ev-deadline').value = '';
             document.getElementById('ev-link').value = '';
             ['ev-product', 'ev-adfee', 'ev-mycost'].forEach(id => { document.getElementById(id).value = ''; });
+            document.getElementById('ev-address').value = '';
+            document.getElementById('ev-visit-date').value = '';
+            closeAddressSearch();
             formPlatform = '';
             formContents = [];
+            visitTime = null;
+            visitAmPm = 'pm';
+            visitDuration = 60;
             updateProfit();
             onCategoryChange();
         }
@@ -1694,7 +2006,11 @@
                 const start = new Date(dateStr);
                 s.value = toLocalInput(start);
                 e.value = toLocalInput(new Date(start.getTime() + 3600000));
+                visitTime = { h: start.getHours(), m: start.getMinutes() - start.getMinutes() % 10 };
+                visitAmPm = visitTime.h < 12 ? 'am' : 'pm';
             }
+            document.getElementById('ev-visit-date').value = (dateStr || toDateStr(new Date())).slice(0, 10);
+            onCategoryChange();
             document.getElementById('ev-author').textContent = currentUser.name;
             openModal('add-modal');
         }
@@ -1715,6 +2031,15 @@
                 document.getElementById('ev-product').value = ev.productValue ? fmtMoney(ev.productValue) : '';
                 document.getElementById('ev-adfee').value = ev.adFee ? fmtMoney(ev.adFee) : '';
                 document.getElementById('ev-mycost').value = ev.myCost ? fmtMoney(ev.myCost) : '';
+                document.getElementById('ev-address').value = ev.address || '';
+                document.getElementById('ev-visit-date').value = toDateStr(ev.start);
+                if (ev.allDay) {
+                    visitTime = null;
+                } else {
+                    visitTime = { h: ev.start.getHours(), m: ev.start.getMinutes() };
+                    visitAmPm = visitTime.h < 12 ? 'am' : 'pm';
+                    visitDuration = Math.max(10, Math.round((ev.end - ev.start) / 60000));
+                }
                 updateProfit();
             }
             onCategoryChange();
@@ -1762,6 +2087,15 @@
             contRow.classList.toggle('hidden', !(blog && ev.contentTypes && ev.contentTypes.length));
             document.getElementById('detail-content').textContent = (ev.contentTypes || []).join(', ');
 
+            // 주소 + 네이버 지도
+            document.getElementById('detail-address-row').classList.toggle('hidden', !(blog && ev.address));
+            document.getElementById('detail-address').textContent = ev.address || '';
+            renderDetailMap(blog ? ev.address : '');
+
+            // 완료 버튼 (협찬 + 수정 권한)
+            document.getElementById('detail-done-wrap').classList.toggle('hidden', !(blog && ev.canEdit));
+            renderDoneButton(ev);
+
             const linkRow = document.getElementById('detail-link-row');
             const safeLink = /^https?:\/\//i.test(ev.link || '') ? ev.link : '';
             linkRow.classList.toggle('hidden', !(blog && safeLink));
@@ -1805,6 +2139,39 @@
             openModal('details-modal');
         }
 
+        function renderDoneButton(ev) {
+            const b = document.getElementById('btn-done');
+            b.innerHTML = ev.done
+                ? `<i class="fa-solid fa-circle-check"></i> 완료됨${ev.doneAt ? ` · ${Number(ev.doneAt.slice(5, 7))}/${Number(ev.doneAt.slice(8, 10))}` : ''} <span class="text-xs font-semibold opacity-80 ml-1">(누르면 취소)</span>`
+                : '<i class="fa-regular fa-circle-check"></i> 블로그 작성 완료로 표시';
+            b.style.cssText = ev.done
+                ? 'background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.5)'
+                : 'background: #22c55e; color: #fff';
+        }
+
+        async function toggleDone(ev, btn) {
+            if (!ev || !ev.canEdit) return;
+            const next = !ev.done;
+            if (btn) btn.disabled = true;
+            try {
+                await setDoneDoc(ev.id, next);
+                ev.done = next;
+                ev.doneAt = next ? toDateStr(new Date()) : '';
+                refreshAll();
+                return true;
+            } catch (err) {
+                alert('완료 표시 실패: ' + friendlyError(err));
+                return false;
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        async function toggleDoneCurrent() {
+            const btn = document.getElementById('btn-done');
+            if (await toggleDone(currentDetail, btn)) renderDoneButton(currentDetail);
+        }
+
         function startEdit() {
             if (!currentDetail) return;
             closeModal('details-modal');
@@ -1830,6 +2197,7 @@
             try { await loadUsers(); renderLegend(); } catch (err) { console.error(err); }
             calendar.refetchEvents();
             loadSummary();
+            loadBlogList();
         }
 
         // ===== 저장 (등록 / 수정) =====
@@ -1838,9 +2206,9 @@
             const errEl = document.getElementById('add-error');
             const btn = document.getElementById('btn-save');
             const title = titleEl.value.trim();
-            const startVal = document.getElementById('ev-start').value;
-            const endVal = document.getElementById('ev-end').value;
-            const allDay = document.getElementById('ev-allday').checked;
+            let startVal = document.getElementById('ev-start').value;
+            let endVal = document.getElementById('ev-end').value;
+            let allDay = document.getElementById('ev-allday').checked;
             const category = document.getElementById('ev-category').value;
             const memo = document.getElementById('ev-memo').value.trim();
 
@@ -1851,6 +2219,18 @@
 
             let platform = '', blogFields = {};
             if (category === BLOG) {
+                // 협찬: 방문 날짜 + 시간 버튼으로 시작/종료를 만든다 (시간 미정이면 종일)
+                const vd = document.getElementById('ev-visit-date').value;
+                if (!vd) return showError('방문 날짜를 선택하세요.');
+                if (visitTime) {
+                    const s = new Date(`${vd}T${pad(visitTime.h)}:${pad(visitTime.m)}`);
+                    allDay = false;
+                    startVal = toLocalInput(s);
+                    endVal = toLocalInput(new Date(s.getTime() + visitDuration * 60000));
+                } else {
+                    allDay = true;
+                    startVal = endVal = vd;
+                }
                 platform = formPlatform;
                 if (!platform) return showError('협찬 플랫폼을 선택하거나 추가하세요.');
                 let link = document.getElementById('ev-link').value.trim();
@@ -1861,7 +2241,8 @@
                     contentTypes: formContents,
                     productValue: parseMoney(document.getElementById('ev-product').value),
                     adFee: parseMoney(document.getElementById('ev-adfee').value),
-                    myCost: parseMoney(document.getElementById('ev-mycost').value)
+                    myCost: parseMoney(document.getElementById('ev-mycost').value),
+                    address: document.getElementById('ev-address').value.trim().slice(0, 200)
                 };
                 if (blogFields.deadline && blogFields.deadline < startVal.slice(0, 10)) return showError('제출 마감일이 체험일보다 빠릅니다.');
             }

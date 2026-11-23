@@ -93,18 +93,21 @@ function docRange(d) {
 
 function createCopy(cal, doc, range) {
   const d = doc.data;
+  const title = (d.done ? "✓ " : "") + d.title;
   var ev;
   if (d.allDay) {
     ev = (range.end - range.start) <= 26 * 3600 * 1000
-      ? cal.createAllDayEvent(d.title, range.start)
-      : cal.createAllDayEvent(d.title, range.start, range.end);
+      ? cal.createAllDayEvent(title, range.start)
+      : cal.createAllDayEvent(title, range.start, range.end);
   } else {
-    ev = cal.createEvent(d.title, range.start, range.end);
+    ev = cal.createEvent(title, range.start, range.end);
   }
+  if (d.address) ev.setLocation(d.address);
 
   const lines = [];
   if (d.memo) lines.push(d.memo, "");
   lines.push("종류: " + (d.category || ""));
+  if (d.done) lines.push("상태: 완료" + (d.doneAt ? " (" + d.doneAt + ")" : ""));
   if (d.platform) lines.push("플랫폼: " + d.platform);
   if (d.deadline) lines.push("제출 마감: " + d.deadline);
   if (d.contentTypes && d.contentTypes.length) lines.push("콘텐츠: " + d.contentTypes.join(", "));
@@ -204,10 +207,11 @@ function sendDailyReminders() {
 
   listDocs("events").forEach(function (doc) {
     const d = doc.data;
+    if (d.done) return;   // 완료한 협찬은 알리지 않음
     const to = d.category === BLOG_CATEGORY ? everyone : [d.authorEmail];
     if (coversDay(d, today, tz)) {
       const time = d.allDay ? "" : Utilities.formatDate(new Date(d.start), tz, "HH:mm") + " ";
-      add(to, "visits", time + d.title);
+      add(to, "visits", time + d.title + (d.address ? " · " + String(d.address).split(" ").slice(0, 3).join(" ") : ""));
     }
     if (d.category === BLOG_CATEGORY && d.deadline === today) add(to, "deadlines", "오늘 마감 · " + d.title);
     if (d.category === BLOG_CATEGORY && d.deadline === tomorrow) add(to, "deadlines", "내일 마감 · " + d.title);
