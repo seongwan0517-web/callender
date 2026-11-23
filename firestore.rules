@@ -94,6 +94,17 @@ service cloud.firestore {
       allow delete: if isMember() && canEdit();
     }
 
+    // 푸시 알림 받을 기기 (본인 것만 등록/삭제, 읽기는 서버(Apps Script)만)
+    match /pushTokens/{token} {
+      allow create, update: if isMember()
+        && (resource == null || resource.data.email == myEmail())
+        && request.resource.data.keys().hasOnly(['email', 'platform', 'updatedAt'])
+        && request.resource.data.email == myEmail()
+        && request.resource.data.platform is string && request.resource.data.platform.size() <= 120
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if signedIn() && resource.data.email == myEmail();
+    }
+
     match /users/{userEmail} {
       allow read: if isMember();
       allow create, update: if isMember()

@@ -8,6 +8,9 @@
  * 처음 한 번:
  *   1) migrateFromCalendar 실행 — 예전 앱이 캘린더에 만든 일정을 Firestore 로 옮김
  *   2) setup 실행 — 5분마다 syncToCalendar 가 돌도록 트리거 등록
+ *   3) setupReminders 실행 — 매일 아침 9시 푸시 알림(sendDailyReminders) 트리거 등록
+ *
+ * 알림 테스트: sendTestPush 실행 → 관리자(내) 휴대폰으로 테스트 알림
  */
 
 // ===================== 설정 =====================
@@ -103,6 +106,13 @@ function createCopy(cal, doc, range) {
   if (d.memo) lines.push(d.memo, "");
   lines.push("종류: " + (d.category || ""));
   if (d.platform) lines.push("플랫폼: " + d.platform);
+  if (d.deadline) lines.push("제출 마감: " + d.deadline);
+  if (d.contentTypes && d.contentTypes.length) lines.push("콘텐츠: " + d.contentTypes.join(", "));
+  if (d.link) lines.push("캠페인 링크: " + d.link);
+  if (d.productValue || d.adFee || d.myCost) {
+    const won = function (n) { return Number(n || 0).toLocaleString("ko-KR") + "원"; };
+    lines.push("상품 가치 " + won(d.productValue) + " / 광고비 " + won(d.adFee) + " / 지출 " + won(d.myCost));
+  }
   lines.push("작성자: " + (d.authorName || "익명") + (d.authorEmail ? " (" + d.authorEmail + ")" : ""));
   lines.push("", "※ Time Schedule 앱에서 동기화된 일정입니다. 수정은 앱에서 하세요.");
   ev.setDescription(lines.join("\n"));
@@ -158,6 +168,117 @@ function migrateFromCalendar() {
   });
 
   console.log("옮긴 일정: " + moved + "개, 건너뜀: " + skipped + "개");
+}
+
+// ===================== 푸시 알림 =====================
+// 매일 아침: 오늘 체험/일정 + 오늘·내일 제출 마감을 사람별로 묶어서 한 번 보냄
+//  - 블로그 협찬: 알림을 켠 멤버 전원
+//  - 회사/개인 일정: 등록한 사람
+const REMINDER_HOUR = 9;
+
+function setupReminders() {
+  ScriptApp.getProjectTriggers()
+    .filter(function (t) { return t.getHandlerFunction() === "sendDailyReminders"; })
+    .forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("sendDailyReminders").timeBased()
+    .atHour(REMINDER_HOUR).nearMinute(0).everyDays(1).inTimezone("Asia/Seoul").create();
+}
+
+function sendDailyReminders() {
+  const tz = Session.getScriptTimeZone();
+  const today = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+  const tomorrow = Utilities.formatDate(new Date(Date.now() + DAY), tz, "yyyy-MM-dd");
+
+  const tokens = listDocs("pushTokens");
+  if (!tokens.length) return;
+  const everyone = unique(tokens.map(function (t) { return t.data.email; }));
+
+  const perUser = {};
+  function add(emails, kind, text) {
+    emails.forEach(function (e) {
+      if (!e) return;
+      const u = perUser[e] || (perUser[e] = { visits: [], deadlines: [] });
+      u[kind].push(text);
+    });
+  }
+
+  listDocs("events").forEach(function (doc) {
+    const d = doc.data;
+    const to = d.category === BLOG_CATEGORY ? everyone : [d.authorEmail];
+    if (coversDay(d, today, tz)) {
+      const time = d.allDay ? "" : Utilities.formatDate(new Date(d.start), tz, "HH:mm") + " ";
+      add(to, "visits", time + d.title);
+    }
+    if (d.category === BLOG_CATEGORY && d.deadline === today) add(to, "deadlines", "오늘 마감 · " + d.title);
+    if (d.category === BLOG_CATEGORY && d.deadline === tomorrow) add(to, "deadlines", "내일 마감 · " + d.title);
+  });
+
+  var sent = 0, removed = 0;
+  Object.keys(perUser).forEach(function (email) {
+    const u = perUser[email];
+    const parts = [];
+    if (u.visits.length) parts.push("오늘 일정 " + u.visits.length + "개");
+    if (u.deadlines.length) parts.push("마감 " + u.deadlines.length + "개");
+    const items = u.deadlines.concat(u.visits);
+    const body = items.slice(0, 4).join("\n") + (items.length > 4 ? "\n외 " + (items.length - 4) + "개" : "");
+    tokens.filter(function (t) { return t.data.email === email; }).forEach(function (t) {
+      const r = sendPush(t.id, "📅 " + parts.join(" · "), body, "daily-" + today);
+      if (r === "sent") sent++;
+      if (r === "invalid") { deleteDoc("pushTokens", t.id); removed++; }
+    });
+  });
+  console.log("알림 발송 " + sent + "건, 만료 토큰 정리 " + removed + "건");
+}
+
+// 테스트: 관리자(스크립트 소유자) 기기로 알림 한 번 보내기
+function sendTestPush() {
+  const me = Session.getEffectiveUser().getEmail();
+  const mine = listDocs("pushTokens").filter(function (t) { return t.data.email === me; });
+  if (!mine.length) { console.log(me + " 계정으로 알림을 켠 기기가 없습니다. 앱의 내 정보 → 알림 켜기를 먼저 해 주세요."); return; }
+  mine.forEach(function (t) {
+    console.log((t.data.platform || "").slice(0, 40) + " → " + sendPush(t.id, "🔔 테스트 알림", "Time Schedule 알림이 잘 도착했어요!", "test"));
+  });
+}
+
+// 일정이 그 날짜(yyyy-MM-dd)에 걸쳐 있는지
+function coversDay(d, day, tz) {
+  if (!d.start || !d.end) return false;
+  if (d.allDay) return d.start <= day && day < d.end;          // end 는 다음 날(exclusive)
+  const s = Utilities.formatDate(new Date(d.start), tz, "yyyy-MM-dd");
+  const e = Utilities.formatDate(new Date(d.end), tz, "yyyy-MM-dd");
+  return s <= day && day <= e;
+}
+
+// FCM HTTP v1 으로 웹 푸시 1건 발송 → "sent" | "invalid"(만료/삭제된 기기) | "error"
+function sendPush(token, title, body, tag) {
+  const res = UrlFetchApp.fetch("https://fcm.googleapis.com/v1/projects/" + PROJECT_ID + "/messages:send", {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken(), "x-goog-user-project": PROJECT_ID },
+    payload: JSON.stringify({
+      message: {
+        token: token,
+        data: { title: title, body: body, url: "/", tag: tag || "time-schedule" },
+        webpush: { headers: { Urgency: "high", TTL: "43200" } },
+      },
+    }),
+    muteHttpExceptions: true,
+  });
+  const code = res.getResponseCode();
+  if (code === 200) return "sent";
+  const text = res.getContentText();
+  if (code === 404 || /UNREGISTERED|INVALID_ARGUMENT/.test(text)) return "invalid";
+  console.log("FCM 오류 " + code + ": " + text.slice(0, 300));
+  return "error";
+}
+
+function unique(arr) {
+  return arr.filter(function (v, i) { return v && arr.indexOf(v) === i; });
+}
+
+function deleteDoc(collection, id) {
+  try { fsFetch("/" + collection + "/" + encodeURIComponent(id), { method: "delete" }); }
+  catch (e) { console.log("삭제 실패: " + e.message); }
 }
 
 // ===================== Firestore REST =====================

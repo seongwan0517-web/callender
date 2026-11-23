@@ -23,6 +23,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 
     <script>
         tailwind.config = {
@@ -479,6 +480,9 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // 웹 푸시 공개 키 (Firebase 콘솔 → 클라우드 메시징 → 웹 푸시 인증서). 공개되어도 괜찮은 값
+        const VAPID_KEY = 'BHqFX4QGr9y53J_n_1C3KeOnuZbrGU6DmNJGZafzJudC6ksPRhoaimxILKzENnmkjKghRSDS2UVsRDqWkw7RTMs';
+
         // 관리자(모든 일정 수정/삭제 + 멤버 관리) — firestore.rules 의 isAdmin() 과 같게 유지
         const ADMIN_EMAILS = ['seongwan0517@gmail.com'];
 
@@ -785,6 +789,104 @@
 
         document.getElementById('member-input').addEventListener('keydown', e => { if (e.key === 'Enter') addMember(); });
 
+        // ===== 푸시 알림 =====
+        // pushTokens/{토큰} = { email, platform, updatedAt } → 동기화 Apps Script 가 매일 아침 이 토큰으로 알림을 보냄
+        const PUSH_KEY = 'nc_push_token';
+        const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        let pushMsg = '';
+
+        function pushSupported() {
+            return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+                && location.protocol === 'https:' && firebase.messaging.isSupported();
+        }
+
+        // 'on' | 'off' | 'blocked' | 'need-install' | 'unsupported'
+        function pushState() {
+            if (isIOS() && !isStandalone()) return 'need-install';
+            if (!pushSupported()) return 'unsupported';
+            if (Notification.permission === 'denied') return 'blocked';
+            return Notification.permission === 'granted' && localStorage.getItem(PUSH_KEY) ? 'on' : 'off';
+        }
+
+        async function registerPushToken() {
+            const reg = await navigator.serviceWorker.ready;
+            const token = await firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+            if (!token) throw new Error('알림 토큰을 받지 못했습니다.');
+            const old = localStorage.getItem(PUSH_KEY);
+            if (old && old !== token) db.collection('pushTokens').doc(old).delete().catch(() => {});
+            await db.collection('pushTokens').doc(token).set({
+                email: currentUser.email,
+                platform: (isIOS() ? 'iOS ' : '') + navigator.userAgent.slice(0, 90),
+                updatedAt: serverNow()
+            });
+            localStorage.setItem(PUSH_KEY, token);
+            return reg;
+        }
+
+        async function enablePush() {
+            pushMsg = '';
+            const st = pushState();
+            if (st === 'need-install') { pushMsg = '아이폰은 Safari 공유 버튼 → "홈 화면에 추가"로 설치한 앱에서 켤 수 있어요.'; return renderPushUI(); }
+            if (st === 'unsupported') { pushMsg = '이 브라우저는 알림을 지원하지 않아요.'; return renderPushUI(); }
+            try {
+                const perm = await Notification.requestPermission();
+                if (perm !== 'granted') { pushMsg = '알림이 허용되지 않았어요. 휴대폰 설정에서 이 앱의 알림을 허용해 주세요.'; return renderPushUI(); }
+                const reg = await registerPushToken();
+                reg.showNotification('알림이 켜졌어요', {
+                    body: '매일 아침 9시에 오늘 일정과 제출 마감을 알려드릴게요.',
+                    icon: '/icons/icon-192.png', badge: '/icons/icon-192.png'
+                });
+                pushMsg = '알림이 켜졌어요. 매일 아침 9시에 알려드려요.';
+            } catch (err) {
+                console.error(err);
+                pushMsg = '알림 켜기 실패: ' + friendlyError(err);
+            }
+            renderPushUI();
+        }
+
+        async function disablePush() {
+            const token = localStorage.getItem(PUSH_KEY);
+            try {
+                if (token) await db.collection('pushTokens').doc(token).delete();
+                if (pushSupported()) await firebase.messaging().deleteToken().catch(() => {});
+            } catch (err) { console.error(err); }
+            localStorage.removeItem(PUSH_KEY);
+            pushMsg = '알림을 껐어요.';
+            renderPushUI();
+        }
+
+        // 앱을 열 때마다 토큰을 최신으로 유지 (토큰은 가끔 바뀜)
+        function refreshPushToken() {
+            if (pushState() === 'on') registerPushToken().catch(err => console.error('알림 토큰 갱신 실패', err));
+        }
+
+        function renderPushUI() {
+            const st = pushState();
+            const text = {
+                on: ['알림 켜짐', '매일 아침 9시에 오늘 일정과 마감을 알려드려요'],
+                off: ['알림 꺼짐', '켜면 체험일·제출 마감을 휴대폰으로 알려드려요'],
+                blocked: ['알림 차단됨', '휴대폰/브라우저 설정에서 이 사이트 알림을 허용해 주세요'],
+                'need-install': ['홈 화면 앱에서 사용 가능', '공유 버튼 → "홈 화면에 추가" 후 그 앱에서 켜 주세요'],
+                unsupported: ['알림 미지원', '이 브라우저에서는 알림을 받을 수 없어요']
+            }[st];
+            const btn = st === 'on'
+                ? '<button onclick="disablePush()" class="btn-ghost px-4 py-2 text-sm shrink-0">끄기</button>'
+                : (st === 'off' || st === 'need-install' ? '<button onclick="enablePush()" class="btn-primary px-4 py-2 text-sm shrink-0">켜기</button>' : '');
+            const html = `
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:${st === 'on' ? 'rgba(74,222,128,.15)' : 'var(--surface-3)'}">
+                        <i class="fa-solid ${st === 'on' ? 'fa-bell text-green-400' : 'fa-bell-slash text-gray-400'}"></i>
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-sm">${text[0]}</p>
+                        <p class="text-xs text-gray-400 leading-relaxed">${text[1]}</p>
+                    </div>
+                    ${btn}
+                </div>
+                ${pushMsg ? `<p class="text-xs mt-3 text-gray-300">${escapeHtml(pushMsg)}</p>` : ''}`;
+            document.querySelectorAll('.push-box').forEach(el => { el.innerHTML = html; });
+        }
+
         // ===== 협찬 선택지 (플랫폼 / 콘텐츠 종류) =====
         const optionsRef = () => db.collection('config').doc('options');
 
@@ -943,6 +1045,7 @@
                 <div id="profile-menu" class="hidden absolute right-0 mt-2 w-64 rounded-xl shadow-2xl p-3 z-50" style="background: var(--surface-2); border: 1px solid var(--line)">
                     <p class="font-bold text-sm truncate">${escapeHtml(currentUser.name)}</p>
                     <p class="text-xs text-gray-400 truncate mb-3">${escapeHtml(currentUser.email || '')}</p>
+                    <div class="push-box rounded-lg p-3 mb-2" style="background: var(--surface-3)" onclick="event.stopPropagation()"></div>
                     ${isAdmin() ? '<button onclick="openMembersModal()" class="w-full text-sm font-semibold text-left rounded-lg px-3 py-2.5 hover:bg-white/5 mb-1"><i class="fa-solid fa-user-group w-5 text-gray-400"></i> 멤버 관리</button>' : ''}
                     <button onclick="logout()" class="w-full text-sm font-semibold text-left rounded-lg px-3 py-2.5 hover:bg-white/5"><i class="fa-solid fa-arrow-right-from-bracket w-5 text-gray-400"></i> 로그아웃</button>
                 </div>`;
@@ -954,6 +1057,8 @@
 
             loadOptions();
             renderMe();
+            renderPushUI();
+            refreshPushToken();
             renderFilterChips();
             renderLegend();
             setSide('home');
@@ -1026,6 +1131,7 @@
                         ${isAdmin() ? '<span class="tag mt-1.5" style="background: rgba(229,9,20,.15); color:#f87171">관리자</span>' : ''}
                     </div>
                 </div>
+                <div class="push-box rounded-2xl p-4 mb-4" style="background: var(--surface-2)"></div>
                 <div class="rounded-2xl overflow-hidden divide-y divide-[#2e2e33]" style="background: var(--surface-2)">
                     ${isAdmin() ? row('fa-solid fa-user-group', '멤버 관리', 'openMembersModal()') : ''}
                     ${row('fa-solid fa-arrow-right-from-bracket', '로그아웃', 'logout()')}
