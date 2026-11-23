@@ -6,6 +6,15 @@
     <meta name="theme-color" content="#0f0f11">
     <title>Time Schedule</title>
 
+    <!-- 앱 설치 (안드로이드: 앱 설치 / 아이폰: 공유 → 홈 화면에 추가) -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Time Schedule">
+
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
@@ -44,6 +53,8 @@
         }
         * { -webkit-tap-highlight-color: transparent; }
         html, body { background: var(--bg); color: var(--text); }
+        /* 아이폰 홈 화면 앱: 상단 상태바(시계·배터리) 아래로 내용 내리기 */
+        #main-app { padding-top: env(safe-area-inset-top); }
         body { font-family: "Pretendard Variable", Pretendard, sans-serif; letter-spacing: -0.01em; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -93,6 +104,17 @@
         .seg button.active { background: var(--surface-3); color: var(--text); box-shadow: inset 0 0 0 1px #4a4a52; }
         .seg button.active[data-v="블로그 협찬"] { background: rgba(155, 89, 182, .22); box-shadow: inset 0 0 0 1px var(--blog); }
         .label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+        .opt { padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); transition: all .15s; }
+        .opt:hover { color: var(--text); }
+        .opt.on { background: rgba(155, 89, 182, .25); color: #fff; border-color: var(--blog); }
+        .opt.add { border-style: dashed; }
+        .opt-input { display: inline-flex; gap: 6px; }
+        .opt-input input { width: 130px; background: var(--surface-2); border: 1px solid var(--blog); color: var(--text); border-radius: 999px; padding: 7px 12px; font-size: 14px; outline: none; }
+        .money-row { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; }
+        .money-row:focus-within { border-color: var(--blog); }
+        .money-row span { flex: none; width: 118px; font-size: 13px; color: var(--muted); font-weight: 600; }
+        .money-row em { font-style: normal; font-size: 13px; color: var(--faint); }
+        .money-input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--text); text-align: right; font-size: 16px; font-weight: 700; padding: 12px 0; }
 
         /* 모달 (PC: 가운데 / 모바일: 바텀시트) */
         .modal-overlay { backdrop-filter: blur(4px); background-color: rgba(0, 0, 0, .65); transition: opacity .25s ease; }
@@ -326,24 +348,13 @@
                     </div>
                 </div>
 
-                <!-- 블로그 협찬 선택 시에만 표시 -->
-                <div id="blog-box" class="hidden space-y-2 rounded-xl p-3" style="background: rgba(155,89,182,.10); border: 1px solid rgba(155,89,182,.35)">
-                    <span class="label">협찬 플랫폼</span>
-                    <select id="ev-platform" class="net-input cursor-pointer" onchange="onPlatformChange()">
-                        <option value="리뷰노트">리뷰노트</option>
-                        <option value="강남맛집">강남맛집</option>
-                        <option value="__etc__">기타 (직접 입력)</option>
-                    </select>
-                    <input type="text" id="ev-platform-custom" maxlength="30" class="net-input hidden" placeholder="플랫폼 / 업체명을 직접 입력">
-                </div>
-
                 <div class="grid grid-cols-2 gap-3">
                     <div class="min-w-0">
-                        <span class="label">시작</span>
+                        <span class="label" id="lbl-start">시작</span>
                         <input type="datetime-local" id="ev-start" class="net-input">
                     </div>
                     <div class="min-w-0">
-                        <span class="label">종료</span>
+                        <span class="label" id="lbl-end">종료</span>
                         <input type="datetime-local" id="ev-end" class="net-input">
                     </div>
                 </div>
@@ -352,6 +363,38 @@
                     <input type="checkbox" id="ev-allday" class="w-4 h-4 accent-netRed cursor-pointer" onchange="applyAllDayMode()">
                     <span class="text-sm font-semibold">종일 일정</span>
                 </label>
+
+                <!-- 블로그 협찬 선택 시에만 표시 -->
+                <div id="blog-box" class="hidden space-y-4 rounded-2xl p-4" style="background: rgba(155,89,182,.08); border: 1px solid rgba(155,89,182,.35)">
+                    <div>
+                        <span class="label">제출 마감일</span>
+                        <input type="date" id="ev-deadline" class="net-input">
+                    </div>
+                    <div>
+                        <span class="label">캠페인 링크</span>
+                        <input type="url" id="ev-link" maxlength="500" class="net-input" placeholder="https://" autocomplete="off">
+                    </div>
+                    <div>
+                        <span class="label">플랫폼</span>
+                        <div id="platform-chips" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div>
+                        <span class="label">콘텐츠 종류 <span class="text-gray-500 font-normal">(여러 개 선택 가능)</span></span>
+                        <div id="content-chips" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div>
+                        <span class="label">비용 관리</span>
+                        <div class="space-y-2">
+                            <label class="money-row"><span>협찬 상품 가치</span><input type="text" inputmode="numeric" id="ev-product" class="money-input" placeholder="0" oninput="onMoneyInput(this)"><em>원</em></label>
+                            <label class="money-row"><span>광고비 (받은 금액)</span><input type="text" inputmode="numeric" id="ev-adfee" class="money-input" placeholder="0" oninput="onMoneyInput(this)"><em>원</em></label>
+                            <label class="money-row"><span>내 지출금액</span><input type="text" inputmode="numeric" id="ev-mycost" class="money-input" placeholder="0" oninput="onMoneyInput(this)"><em>원</em></label>
+                        </div>
+                        <div class="flex justify-between items-center mt-3 px-1 text-sm">
+                            <span class="text-gray-400">순이익 <span class="text-gray-500 text-xs">(상품 가치 + 광고비 − 지출)</span></span>
+                            <span id="ev-profit" class="font-extrabold">0원</span>
+                        </div>
+                    </div>
+                </div>
 
                 <div>
                     <span class="label">메모 (선택)</span>
@@ -385,7 +428,11 @@
             <div class="p-5 space-y-4 text-[15px]">
                 <div class="flex items-center gap-3"><i class="fa-regular fa-clock text-netRed w-5 text-center"></i><p id="detail-time" class="font-semibold"></p></div>
                 <div class="flex items-center gap-3"><i class="fa-regular fa-user text-netRed w-5 text-center"></i><p id="detail-author" class="font-semibold"></p></div>
+                <div id="detail-deadline-row" class="hidden flex items-center gap-3"><i class="fa-solid fa-flag-checkered text-netRed w-5 text-center"></i><p id="detail-deadline" class="font-semibold"></p></div>
                 <div id="detail-platform-row" class="hidden flex items-center gap-3"><i class="fa-solid fa-store text-netRed w-5 text-center"></i><p id="detail-platform" class="font-semibold"></p></div>
+                <div id="detail-content-row" class="hidden flex items-center gap-3"><i class="fa-solid fa-photo-film text-netRed w-5 text-center"></i><p id="detail-content" class="font-semibold"></p></div>
+                <div id="detail-link-row" class="hidden flex items-center gap-3 min-w-0"><i class="fa-solid fa-link text-netRed w-5 text-center"></i><a id="detail-link" target="_blank" rel="noopener noreferrer" class="font-semibold text-sky-400 underline truncate"></a></div>
+                <div id="detail-money-row" class="hidden rounded-xl p-3 space-y-1.5 text-sm" style="background: var(--surface-2)"></div>
                 <div id="detail-memo-row" class="hidden flex items-start gap-3"><i class="fa-regular fa-note-sticky text-netRed w-5 text-center mt-1"></i><p id="detail-memo" class="text-gray-200 whitespace-pre-wrap break-words text-sm leading-relaxed"></p></div>
             </div>
             <div id="detail-actions" class="hidden p-5 pt-0 flex gap-3">
@@ -418,9 +465,12 @@
     <script>
         // ===== 설정 =====
         // Firebase 웹 설정값 (공개되어도 괜찮은 값입니다. 접근 제어는 firestore.rules 가 담당)
+        // 배포 사이트에서는 로그인 처리 주소를 사이트와 같은 도메인으로 둔다
+        // (아이폰 Safari / 홈 화면 앱이 다른 도메인 쿠키를 막아 로그인이 풀리는 문제 방지)
+        const HOSTED = ['x-vector-455405-i9.web.app', 'x-vector-455405-i9.firebaseapp.com'];
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyBohWf90tqRG9XpLfGO3rUTDWs5LipUbjc",
-            authDomain: "x-vector-455405-i9.firebaseapp.com",
+            authDomain: HOSTED.includes(location.hostname) ? location.hostname : "x-vector-455405-i9.firebaseapp.com",
             projectId: "x-vector-455405-i9",
             messagingSenderId: "1039790867374",
             appId: "1:1039790867374:web:84d86aef2510c200eebe3f"
@@ -437,7 +487,12 @@
         const NEUTRAL_COLOR = '#808080';   // 작성자를 알 수 없는 일정
         // 처음 로그인한 순서대로 아직 안 쓰인 색을 한 명씩 고정 배정
         const USER_PALETTE = ['#2d7ff9', '#22c55e', '#f97316', '#ec4899', '#eab308', '#06b6d4', '#a16207', '#e5e7eb'];
-        const PRESET_PLATFORMS = ['리뷰노트', '강남맛집'];
+        const PRESET_PLATFORMS = ['리뷰쉐어', '레뷰', '아싸뷰', '리뷰노트'];
+        const PRESET_CONTENTS = ['블로그', '인스타', '쇼핑몰'];
+        const DEADLINE_COLOR = '#e50914';
+        let customOptions = { platforms: [], contentTypes: [] };   // config/options (팀 공용)
+        let formPlatform = '';
+        let formContents = [];
         const CATEGORY_SHORT = { '회사 일정': '회사', '개인 일정': '개인', '블로그 협찬': '협찬' };
         const CATEGORY_DASH_COLOR = { '회사 일정': '#64748b', '개인 일정': '#cbd5e1', '블로그 협찬': BLOG_COLOR };
         const FILTERS = [
@@ -558,24 +613,57 @@
                     author: d.authorName || '익명',
                     platform: d.platform || '',
                     memo: d.memo || '',
+                    deadline: d.deadline || '',
+                    link: d.link || '',
+                    contentTypes: Array.isArray(d.contentTypes) ? d.contentTypes : [],
+                    productValue: Number(d.productValue) || 0,
+                    adFee: Number(d.adFee) || 0,
+                    myCost: Number(d.myCost) || 0,
                     canEdit: isAdmin() || d.authorEmail === currentUser.email
                 }
             };
         }
 
-        // [start, end) 기간과 겹치는 일정
-        async function fetchEvents(start, end) {
-            const snap = await db.collection('events').where('endTs', '>', ts(start)).orderBy('endTs').get();
+        // 협찬의 '제출 마감일'을 달력에 따로 보여주는 표시용 일정 (원래 일정 정보를 그대로 들고 있음)
+        function deadlineMarker(ev) {
+            const p = ev.extendedProps;
+            return {
+                id: ev.id + '__deadline',
+                title: '마감 · ' + ev.title,
+                allDay: true,
+                start: p.deadline,
+                end: toDateStr(addDays(parseLocal(p.deadline), 1)),
+                backgroundColor: DEADLINE_COLOR,
+                borderColor: DEADLINE_COLOR,
+                extendedProps: { ...p, isDeadline: true, srcId: ev.id, srcStart: ev.start, srcEnd: ev.end, srcAllDay: ev.allDay }
+            };
+        }
+
+        // [start, end) 기간과 겹치는 일정. withDeadlines 면 그 기간의 마감일 표시도 함께 만든다
+        async function fetchEvents(start, end, withDeadlines = false) {
+            // 마감일은 체험일보다 늦으므로, 조금 앞선 일정까지 가져와서 마감일이 기간 안인지 본다
+            const from = withDeadlines ? addDays(start, -120) : start;
+            const snap = await db.collection('events').where('endTs', '>', ts(from)).orderBy('endTs').get();
             const events = [];
+            const s0 = toDateStr(start), e0 = toDateStr(end);
             snap.forEach(doc => {
                 const d = doc.data();
-                if (d.startTs && d.startTs.toDate() < end) events.push(docToEvent(doc));
+                if (!d.startTs) return;
+                const ev = docToEvent(doc);
+                if (d.endTs.toDate() > start && d.startTs.toDate() < end) events.push(ev);
+                if (withDeadlines && d.category === BLOG && d.deadline && d.deadline >= s0 && d.deadline < e0) events.push(deadlineMarker(ev));
             });
             return { events, legend };
         }
 
+        // 금액 입력값 → 숫자 (쉼표 제거)
+        const parseMoney = v => Math.max(0, Math.min(1000000000, Number(String(v || '').replace(/[^\d]/g, '')) || 0));
+        const fmtMoney = n => (Number(n) || 0).toLocaleString('ko-KR');
+
         // 폼 값 → 저장할 문서. 종일 일정은 '포함' 종료일을 받아 다음 날(exclusive)로 바꿔 저장
-        function buildEventData({ title, start, end, allDay, category, platform, memo }) {
+        function buildEventData({ title, start, end, allDay, category, platform, memo,
+                                  deadline = '', link = '', contentTypes = [], productValue = 0, adFee = 0, myCost = 0 }) {
+            const blog = category === BLOG;
             let startDate, endDate, startStr, endStr;
             if (allDay) {
                 startDate = parseLocal(start);
@@ -591,7 +679,13 @@
             }
             return {
                 title, category, memo, allDay,
-                platform: category === BLOG ? platform : '',
+                platform: blog ? platform : '',
+                deadline: blog ? deadline : '',
+                link: blog ? link : '',
+                contentTypes: blog ? contentTypes : [],
+                productValue: blog ? productValue : 0,
+                adFee: blog ? adFee : 0,
+                myCost: blog ? myCost : 0,
                 start: startStr, end: endStr,
                 startTs: ts(startDate), endTs: ts(endDate),
                 updatedAt: serverNow()
@@ -691,6 +785,90 @@
 
         document.getElementById('member-input').addEventListener('keydown', e => { if (e.key === 'Enter') addMember(); });
 
+        // ===== 협찬 선택지 (플랫폼 / 콘텐츠 종류) =====
+        const optionsRef = () => db.collection('config').doc('options');
+
+        async function loadOptions() {
+            try {
+                const snap = await optionsRef().get();
+                const d = snap.exists ? snap.data() : {};
+                customOptions = {
+                    platforms: Array.isArray(d.platforms) ? d.platforms : [],
+                    contentTypes: Array.isArray(d.contentTypes) ? d.contentTypes : []
+                };
+            } catch (err) { console.error(err); }
+        }
+
+        const allPlatforms = () => [...new Set([...PRESET_PLATFORMS, ...customOptions.platforms])];
+        const allContents = () => [...new Set([...PRESET_CONTENTS, ...customOptions.contentTypes])];
+
+        function renderOptionChips() {
+            const chip = (kind, v, on) =>
+                `<button type="button" class="opt ${on ? 'on' : ''}" data-kind="${kind}" data-v="${escapeHtml(v)}" onclick="toggleOption(this)">${on && kind === 'content' ? '<i class="fa-solid fa-check mr-1 text-xs"></i>' : ''}${escapeHtml(v)}</button>`;
+            const adder = (kind, text) => `
+                <span class="opt-input hidden" id="add-${kind}-box">
+                    <input type="text" maxlength="20" id="add-${kind}-input" placeholder="이름 입력" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmAddOption('${kind}')}">
+                    <button type="button" class="opt on" onclick="confirmAddOption('${kind}')">확인</button>
+                </span>
+                <button type="button" class="opt add" id="add-${kind}-btn" onclick="startAddOption('${kind}')"><i class="fa-solid fa-plus mr-1 text-xs"></i>${text}</button>`;
+
+            // 지금 일정에 들어 있는 값이 목록에 없으면(예전 데이터) 함께 보여줌
+            const plats = allPlatforms();
+            if (formPlatform && !plats.includes(formPlatform)) plats.push(formPlatform);
+            const conts = allContents();
+            formContents.forEach(c => { if (!conts.includes(c)) conts.push(c); });
+
+            document.getElementById('platform-chips').innerHTML =
+                plats.map(v => chip('platform', v, v === formPlatform)).join('') + adder('platform', '플랫폼 추가');
+            document.getElementById('content-chips').innerHTML =
+                conts.map(v => chip('content', v, formContents.includes(v))).join('') + adder('content', '기타 추가');
+        }
+
+        function toggleOption(btn) {
+            const v = btn.dataset.v;
+            if (btn.dataset.kind === 'platform') formPlatform = formPlatform === v ? '' : v;
+            else formContents = formContents.includes(v) ? formContents.filter(x => x !== v) : [...formContents, v];
+            renderOptionChips();
+        }
+
+        function startAddOption(kind) {
+            document.getElementById(`add-${kind}-btn`).classList.add('hidden');
+            const box = document.getElementById(`add-${kind}-box`);
+            box.classList.remove('hidden');
+            document.getElementById(`add-${kind}-input`).focus();
+        }
+
+        async function confirmAddOption(kind) {
+            const v = document.getElementById(`add-${kind}-input`).value.trim().slice(0, 20);
+            if (!v) return renderOptionChips();
+            const key = kind === 'platform' ? 'platforms' : 'contentTypes';
+            const preset = kind === 'platform' ? PRESET_PLATFORMS : PRESET_CONTENTS;
+            if (kind === 'platform') formPlatform = v;
+            else if (!formContents.includes(v)) formContents = [...formContents, v];
+            if (!preset.includes(v) && !customOptions[key].includes(v)) {
+                customOptions = { ...customOptions, [key]: [...customOptions[key], v] };
+                optionsRef().set({ platforms: customOptions.platforms, contentTypes: customOptions.contentTypes })
+                    .catch(err => console.error('선택지 저장 실패', err));
+            }
+            renderOptionChips();
+        }
+
+        // 금액 입력: 숫자만 + 천 단위 쉼표, 순이익 계산
+        function onMoneyInput(el) {
+            const n = parseMoney(el.value);
+            el.value = el.value.trim() === '' ? '' : fmtMoney(n);
+            updateProfit();
+        }
+
+        function updateProfit() {
+            const p = parseMoney(document.getElementById('ev-product').value)
+                    + parseMoney(document.getElementById('ev-adfee').value)
+                    - parseMoney(document.getElementById('ev-mycost').value);
+            const el = document.getElementById('ev-profit');
+            el.textContent = `${p < 0 ? '−' : ''}${fmtMoney(Math.abs(p))}원`;
+            el.style.color = p < 0 ? '#f87171' : (p > 0 ? '#4ade80' : '');
+        }
+
         // ===== 로그인 / 세션 =====
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
@@ -701,11 +879,15 @@
             el.classList.toggle('hidden', !msg);
         }
 
+        // 홈 화면에 추가해서 앱처럼 연 경우 (팝업이 막히므로 페이지 이동 방식으로 로그인)
+        const isStandalone = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
         async function login() {
             const btn = document.getElementById('login-btn');
             btn.disabled = true;
             showLoginError('');
             try {
+                if (isStandalone()) return await auth.signInWithRedirect(provider);
                 await auth.signInWithPopup(provider);
             } catch (err) {
                 if (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment') {
@@ -770,6 +952,7 @@
                 document.getElementById('profile-menu').classList.toggle('hidden');
             });
 
+            loadOptions();
             renderMe();
             renderFilterChips();
             renderLegend();
@@ -900,7 +1083,7 @@
                 },
                 eventsSet: () => { renderMobileDots(); renderDayAgenda(); },
                 events: (info, success, failure) => {
-                    fetchEvents(info.start, info.end)
+                    fetchEvents(info.start, info.end, true)
                         .then(r => {
                             legend = r.legend || legend;
                             renderLegend();
@@ -966,26 +1149,41 @@
         // ===== 데이터 변환 =====
         function normalize(ev) {
             const props = ev.extendedProps || {};
-            const start = ev.start instanceof Date ? ev.start : parseLocal(ev.start);
-            let end = ev.end instanceof Date ? ev.end : parseLocal(ev.end);
+            const toDate = v => v instanceof Date ? v : parseLocal(v);
+            // 마감일 표시를 누르면 원래 일정(체험일 기준)을 보여준다
+            const src = props.isDeadline
+                ? { id: props.srcId, title: ev.title.replace(/^마감 · /, ''), allDay: props.srcAllDay, start: props.srcStart, end: props.srcEnd }
+                : ev;
+            const start = toDate(src.start);
+            let end = toDate(src.end);
             if (!end) end = start;
             return {
-                id: ev.id,
-                title: ev.title,
-                allDay: !!ev.allDay,
+                id: src.id,
+                title: src.title,
+                allDay: !!src.allDay,
                 start, end,
-                color: ev.backgroundColor || NEUTRAL_COLOR,
+                color: props.isDeadline ? BLOG_COLOR : (ev.backgroundColor || NEUTRAL_COLOR),
                 category: props.category || '개인 일정',
                 author: props.author || '익명',
                 platform: props.platform || '',
                 memo: props.memo || '',
+                deadline: props.deadline || '',
+                link: props.link || '',
+                contentTypes: props.contentTypes || [],
+                productValue: props.productValue || 0,
+                adFee: props.adFee || 0,
+                myCost: props.myCost || 0,
                 canEdit: !!props.canEdit
             };
         }
-        const fcToView = ev => normalize({
-            id: ev.id, title: ev.title, allDay: ev.allDay, start: ev.start, end: ev.end,
-            backgroundColor: ev.backgroundColor, extendedProps: ev.extendedProps
-        });
+        const fcToView = ev => {
+            const v = normalize({
+                id: ev.id, title: ev.title, allDay: ev.allDay, start: ev.start, end: ev.end,
+                backgroundColor: ev.backgroundColor, extendedProps: ev.extendedProps
+            });
+            if (ev.extendedProps && ev.extendedProps.isDeadline) v.deadlineView = true;   // 목록에서 '마감' 카드로 표시
+            return v;
+        };
 
         // ===== 카드 UI =====
         function categoryTag(ev) {
@@ -1007,14 +1205,17 @@
         }
 
         function cardHtml(ev, cls, idx) {
+            const dl = !!ev.deadlineView;
+            const deadlineTag = '<span class="tag" style="background: rgba(229,9,20,.18); color:#fca5a5"><i class="fa-solid fa-flag-checkered"></i> 제출 마감</span>';
+            const contents = (ev.contentTypes || []).map(c => `<span class="tag" style="background: var(--surface-3); color: var(--muted)">${escapeHtml(c)}</span>`).join('');
             return `
-                <div class="ev-card ${cls}" style="--c:${escapeHtml(ev.color)}" data-index="${idx}">
+                <div class="ev-card ${cls}" style="--c:${dl ? DEADLINE_COLOR : escapeHtml(ev.color)}" data-index="${idx}">
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-1.5 flex-wrap">${categoryTag(ev)}</div>
+                        <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">${dl ? deadlineTag : ''}${categoryTag(ev)}${contents}</div>
                         <div class="ev-title">${escapeHtml(ev.title)}</div>
-                        <div class="ev-meta mt-1.5 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full inline-block" style="background:${escapeHtml(ev.color)}"></span>${escapeHtml(ev.author)}</div>
+                        <div class="ev-meta mt-1.5 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full inline-block" style="background:${escapeHtml(ev.color)}"></span>${escapeHtml(ev.author)}${!dl && ev.deadline ? ` <span class="text-gray-500">· 마감 ${Number(ev.deadline.slice(5, 7))}/${Number(ev.deadline.slice(8, 10))}</span>` : ''}</div>
                     </div>
-                    <div class="ev-time pt-0.5">${escapeHtml(timeText(ev))}</div>
+                    <div class="ev-time pt-0.5" style="${dl ? 'color:#fca5a5' : ''}">${dl ? '마감' : escapeHtml(timeText(ev))}</div>
                 </div>`;
         }
 
@@ -1037,16 +1238,23 @@
 
                 const from = new Date(Math.min(monthStart, weekStart));
                 const to = new Date(Math.max(monthEnd, weekEnd, horizon));
-                const r = await fetchEvents(from, to);
+                // 마감일이 남은 협찬을 놓치지 않도록 조금 앞선 일정까지 가져온다
+                const r = await fetchEvents(addDays(from, -120), to);
 
                 legend = r.legend || legend;
                 renderLegend();
                 allEvents = r.events.map(normalize);
 
+                // 다가오는 일정 = 체험/일정 + 협찬 제출 마감일
                 const now = new Date();
-                upcomingEvents = allEvents
+                const visits = allEvents
                     .filter(e => e.end > now && e.start < horizon)
-                    .sort((a, b) => a.start - b.start);
+                    .map(e => ({ ...e, listDate: e.start }));
+                const deadlines = allEvents
+                    .filter(e => e.category === BLOG && e.deadline)
+                    .map(e => ({ ...e, deadlineView: true, listDate: parseLocal(e.deadline) }))
+                    .filter(e => e.listDate >= t && e.listDate < horizon);
+                upcomingEvents = [...visits, ...deadlines].sort((a, b) => a.listDate - b.listDate || (a.deadlineView ? 1 : -1));
                 renderHero();
                 renderUpcoming();
                 renderDashboard();
@@ -1073,10 +1281,12 @@
                     <div class="text-2xl font-extrabold" style="${color ? `color:${color}` : ''}">${num}</div>
                     <div class="text-xs text-gray-400 font-semibold mt-0.5">${label}</div>
                 </div>`;
+            const soon = allEvents.filter(ev => ev.category === BLOG && ev.deadline
+                && parseLocal(ev.deadline) >= d0 && parseLocal(ev.deadline) < addDays(d0, 8)).length;
             document.getElementById('hero-stats').innerHTML =
                 tile(count(d0, d1), '오늘 일정', '#fff') +
-                tile(count(w0, w1), '이번 주') +
-                tile(count(m0, m1, ev => ev.category === BLOG), '이번 달 협찬', BLOG_COLOR);
+                tile(count(m0, m1, ev => ev.category === BLOG), '이번 달 협찬', BLOG_COLOR) +
+                tile(soon, '마감 7일 이내', soon ? '#f87171' : '');
         }
 
         function renderUpcoming() {
@@ -1090,9 +1300,10 @@
             const groups = [];
             let cur = null;
             items.forEach(x => {
-                const ongoing = x.ev.start < today;
-                const key = ongoing ? 'ongoing' : toDateStr(x.ev.start);
-                if (!cur || cur.key !== key) { cur = { key, day: ongoing ? today : startOfDay(x.ev.start), ongoing, items: [] }; groups.push(cur); }
+                const d = x.ev.listDate || x.ev.start;
+                const ongoing = d < today;
+                const key = ongoing ? 'ongoing' : toDateStr(d);
+                if (!cur || cur.key !== key) { cur = { key, day: ongoing ? today : startOfDay(d), ongoing, items: [] }; groups.push(cur); }
                 cur.items.push(x);
             });
             list.innerHTML = groups.map(g => {
@@ -1140,12 +1351,24 @@
             evs.forEach(ev => { if (by[ev.category] !== undefined) by[ev.category]++; });
             const pct = n => total ? Math.round(n / total * 100) : 0;
 
-            // 블로그 플랫폼별
-            const plat = { '리뷰노트': 0, '강남맛집': 0, '기타': 0 };
-            evs.filter(ev => ev.category === BLOG).forEach(ev => {
-                plat[PRESET_PLATFORMS.includes(ev.platform) ? ev.platform : '기타']++;
-            });
+            // 블로그 플랫폼별 (기본 플랫폼은 0개여도 표시, 나머지는 있는 것만)
+            const blogs = evs.filter(ev => ev.category === BLOG);
+            const platCount = {};
+            PRESET_PLATFORMS.forEach(p => { platCount[p] = 0; });
+            blogs.forEach(ev => { const k = ev.platform || '미지정'; platCount[k] = (platCount[k] || 0) + 1; });
+            const plat = Object.fromEntries(Object.entries(platCount).sort((a, b) => b[1] - a[1]).slice(0, 8));
             const platMax = Math.max(1, ...Object.values(plat));
+
+            // 콘텐츠 종류별
+            const contCount = {};
+            blogs.forEach(ev => (ev.contentTypes || []).forEach(c => { contCount[c] = (contCount[c] || 0) + 1; }));
+            const contList = Object.entries(contCount).sort((a, b) => b[1] - a[1]);
+            const contMax = Math.max(1, ...contList.map(([, v]) => v));
+
+            // 협찬 금액
+            const sum = k => blogs.reduce((a, ev) => a + (Number(ev[k]) || 0), 0);
+            const money = { product: sum('productValue'), ad: sum('adFee'), cost: sum('myCost') };
+            const profit = money.product + money.ad - money.cost;
 
             // 멤버별 (공통 일정인 블로그 협찬 제외)
             const membersCount = {};
@@ -1219,7 +1442,20 @@
                     <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">${stackedLegend}</div>`)
                     : '<div class="empty mb-3">이 기간에 등록된 일정이 없습니다.</div>'}
 
+                ${card('협찬 금액', `
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span class="text-gray-400">협찬 상품 가치</span><span class="font-bold">${fmtMoney(money.product)}원</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400">광고비 (받은 금액)</span><span class="font-bold">${fmtMoney(money.ad)}원</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400">내 지출금액</span><span class="font-bold">−${fmtMoney(money.cost)}원</span></div>
+                        <div class="flex justify-between pt-2 mt-1 border-t" style="border-color: var(--line)">
+                            <span class="font-bold">순이익</span>
+                            <span class="font-extrabold text-base" style="color:${profit < 0 ? '#f87171' : '#4ade80'}">${profit < 0 ? '−' : ''}${fmtMoney(Math.abs(profit))}원</span>
+                        </div>
+                    </div>`)}
+
                 ${card('블로그 협찬 플랫폼', `<div class="space-y-2.5">${Object.entries(plat).map(([k, v]) => row(k, v, platMax, BLOG_COLOR)).join('')}</div>`)}
+
+                ${card('콘텐츠 종류', `<div class="space-y-2.5">${contList.length ? contList.map(([k, v]) => row(k, v, contMax, '#c084fc')).join('') : '<p class="text-sm text-gray-500">데이터가 없습니다.</p>'}</div>`)}
 
                 ${card('멤버별 일정 <span class="text-xs font-normal text-gray-500">(협찬 제외)</span>',
                     `<div class="space-y-2.5">${memberList.length ? memberList.map(([name, v]) => row(name, v.count, memberMax, v.color)).join('') : '<p class="text-sm text-gray-500">데이터가 없습니다.</p>'}</div>`)}
@@ -1302,15 +1538,13 @@
 
         function onCategoryChange() {
             const v = document.getElementById('ev-category').value;
+            const blog = v === BLOG;
             document.querySelectorAll('#cat-seg button').forEach(b => b.classList.toggle('active', b.dataset.v === v));
-            document.getElementById('blog-box').classList.toggle('hidden', v !== BLOG);
-            onPlatformChange();
-        }
-
-        function onPlatformChange() {
-            const blog = document.getElementById('ev-category').value === BLOG;
-            const etc = document.getElementById('ev-platform').value === '__etc__';
-            document.getElementById('ev-platform-custom').classList.toggle('hidden', !(blog && etc));
+            document.getElementById('blog-box').classList.toggle('hidden', !blog);
+            document.getElementById('ev-title').placeholder = blog ? '스케줄 제목 (예: 강남 맛집 체험)' : '일정 제목';
+            document.getElementById('lbl-start').textContent = blog ? '체험(방문) 시작' : '시작';
+            document.getElementById('lbl-end').textContent = blog ? '체험(방문) 종료' : '종료';
+            if (blog) renderOptionChips();
         }
 
         function applyAllDayMode() {
@@ -1328,8 +1562,12 @@
             document.getElementById('ev-title').value = '';
             document.getElementById('ev-memo').value = '';
             document.getElementById('ev-category').value = catFilter !== 'all' ? catFilter : '회사 일정';
-            document.getElementById('ev-platform').value = '리뷰노트';
-            document.getElementById('ev-platform-custom').value = '';
+            document.getElementById('ev-deadline').value = '';
+            document.getElementById('ev-link').value = '';
+            ['ev-product', 'ev-adfee', 'ev-mycost'].forEach(id => { document.getElementById(id).value = ''; });
+            formPlatform = '';
+            formContents = [];
+            updateProfit();
             onCategoryChange();
         }
 
@@ -1364,12 +1602,14 @@
             document.getElementById('ev-memo').value = ev.memo;
             document.getElementById('ev-category').value = ev.category;
             if (ev.category === BLOG) {
-                if (PRESET_PLATFORMS.includes(ev.platform)) {
-                    document.getElementById('ev-platform').value = ev.platform;
-                } else {
-                    document.getElementById('ev-platform').value = '__etc__';
-                    document.getElementById('ev-platform-custom').value = ev.platform;
-                }
+                formPlatform = ev.platform || '';
+                formContents = [...(ev.contentTypes || [])];
+                document.getElementById('ev-deadline').value = ev.deadline || '';
+                document.getElementById('ev-link').value = ev.link || '';
+                document.getElementById('ev-product').value = ev.productValue ? fmtMoney(ev.productValue) : '';
+                document.getElementById('ev-adfee').value = ev.adFee ? fmtMoney(ev.adFee) : '';
+                document.getElementById('ev-mycost').value = ev.myCost ? fmtMoney(ev.myCost) : '';
+                updateProfit();
             }
             onCategoryChange();
 
@@ -1398,9 +1638,43 @@
             document.getElementById('detail-badge').textContent = CATEGORY_SHORT[ev.category] || ev.category;
             document.getElementById('detail-cover').style.backgroundColor = ev.color;
 
+            const blog = ev.category === BLOG;
             const platRow = document.getElementById('detail-platform-row');
-            platRow.classList.toggle('hidden', !(ev.category === BLOG && ev.platform));
+            platRow.classList.toggle('hidden', !(blog && ev.platform));
             document.getElementById('detail-platform').textContent = ev.platform;
+
+            // 협찬 전용: 마감일 / 콘텐츠 / 링크 / 비용
+            const dlRow = document.getElementById('detail-deadline-row');
+            dlRow.classList.toggle('hidden', !(blog && ev.deadline));
+            if (blog && ev.deadline) {
+                const dd = ddayInfo(parseLocal(ev.deadline));
+                const past = parseLocal(ev.deadline) < startOfDay(new Date());
+                document.getElementById('detail-deadline').innerHTML =
+                    `제출 마감 ${escapeHtml(fmtMD(parseLocal(ev.deadline)))} <span class="dday ${dd.hot && !past ? 'hot' : ''} ml-1">${past ? '마감 지남' : dd.text}</span>`;
+            }
+            const contRow = document.getElementById('detail-content-row');
+            contRow.classList.toggle('hidden', !(blog && ev.contentTypes && ev.contentTypes.length));
+            document.getElementById('detail-content').textContent = (ev.contentTypes || []).join(', ');
+
+            const linkRow = document.getElementById('detail-link-row');
+            const safeLink = /^https?:\/\//i.test(ev.link || '') ? ev.link : '';
+            linkRow.classList.toggle('hidden', !(blog && safeLink));
+            const a = document.getElementById('detail-link');
+            a.textContent = safeLink ? '캠페인 페이지 열기' : '';
+            if (safeLink) a.href = safeLink; else a.removeAttribute('href');
+
+            const moneyRow = document.getElementById('detail-money-row');
+            const hasMoney = blog && (ev.productValue || ev.adFee || ev.myCost);
+            moneyRow.classList.toggle('hidden', !hasMoney);
+            if (hasMoney) {
+                const profit = ev.productValue + ev.adFee - ev.myCost;
+                const line = (k, v) => `<div class="flex justify-between"><span class="text-gray-400">${k}</span><span class="font-bold">${v}</span></div>`;
+                moneyRow.innerHTML =
+                    line('협찬 상품 가치', fmtMoney(ev.productValue) + '원') +
+                    line('광고비', fmtMoney(ev.adFee) + '원') +
+                    line('내 지출', '−' + fmtMoney(ev.myCost) + '원') +
+                    `<div class="flex justify-between pt-1.5 border-t" style="border-color: var(--line)"><span class="font-bold">순이익</span><span class="font-extrabold" style="color:${profit < 0 ? '#f87171' : '#4ade80'}">${profit < 0 ? '−' : ''}${fmtMoney(Math.abs(profit))}원</span></div>`;
+            }
 
             const memoRow = document.getElementById('detail-memo-row');
             memoRow.classList.toggle('hidden', !ev.memo);
@@ -1469,11 +1743,21 @@
 
             if (!title) { titleEl.style.borderColor = '#e50914'; setTimeout(() => titleEl.style.borderColor = '', 2000); return showError('제목을 입력하세요.'); }
 
-            let platform = '';
+            let platform = '', blogFields = {};
             if (category === BLOG) {
-                const sel = document.getElementById('ev-platform').value;
-                platform = sel === '__etc__' ? document.getElementById('ev-platform-custom').value.trim() : sel;
-                if (!platform) return showError('협찬 플랫폼을 입력하세요.');
+                platform = formPlatform;
+                if (!platform) return showError('협찬 플랫폼을 선택하거나 추가하세요.');
+                let link = document.getElementById('ev-link').value.trim();
+                if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
+                blogFields = {
+                    deadline: document.getElementById('ev-deadline').value,
+                    link,
+                    contentTypes: formContents,
+                    productValue: parseMoney(document.getElementById('ev-product').value),
+                    adFee: parseMoney(document.getElementById('ev-adfee').value),
+                    myCost: parseMoney(document.getElementById('ev-mycost').value)
+                };
+                if (blogFields.deadline && blogFields.deadline < startVal.slice(0, 10)) return showError('제출 마감일이 체험일보다 빠릅니다.');
             }
             if (!startVal || !endVal) return showError('시작/종료 시간을 입력하세요.');
 
@@ -1491,7 +1775,7 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
             btn.disabled = true;
             try {
-                const input = { title, start, end, allDay, category, platform, memo };
+                const input = { title, start, end, allDay, category, platform, memo, ...blogFields };
                 if (editingId) await updateEventDoc(editingId, input);
                 else await addEventDoc(input);
                 closeModal('add-modal');
@@ -1502,6 +1786,11 @@
                 btn.textContent = label;
                 btn.disabled = false;
             }
+        }
+
+        // ===== 앱 설치(PWA) =====
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.error('서비스 워커 등록 실패', err));
         }
     </script>
 </body>
