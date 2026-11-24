@@ -185,6 +185,47 @@
         .nc-dots span { width: 6px; height: 6px; border-radius: 50%; display: block; }
         .fc .fc-daygrid-day.nc-selected .fc-daygrid-day-frame { box-shadow: inset 0 0 0 2px var(--text); border-radius: 10px; }
 
+        /* ===== 일정 / 예산 전환 ===== */
+        .mode-switch { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--surface-2); }
+        .mode-switch button { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9px; font-size: 13px; font-weight: 800; color: var(--muted); transition: all .15s; }
+        .mode-switch button.active { background: var(--surface-3); color: var(--text); }
+        .mode-switch button.active[data-mode-btn="budget"] { background: #16a34a; color: #fff; }
+        body:not([data-mode="budget"]) .budget-only { display: none !important; }
+        body[data-mode="budget"] .sched-only { display: none !important; }
+
+        /* ===== 예산 화면 ===== */
+        #budget-app { flex: 1; min-height: 0; overflow-y: auto; }
+        .budget-wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px calc(110px + env(safe-area-inset-bottom)); }
+        .bg-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+        @media (min-width: 900px) { .bg-grid.two { grid-template-columns: 1fr 1fr; } .bg-grid.three { grid-template-columns: 1.2fr 1fr 1fr; } }
+        .bg-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+        .bg-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .bg-card h3 small { font-size: 12px; font-weight: 600; color: var(--faint); }
+        .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        @media (min-width: 900px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+        .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+        .kpi .k { font-size: 12px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+        .kpi .v { font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -0.02em; }
+        .kpi .s { font-size: 12px; color: var(--faint); margin-top: 2px; }
+        .pos { color: #4ade80; } .neg { color: #f87171; }
+        .bg-row { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 7px 0; }
+        .bg-row + .bg-row { border-top: 1px solid var(--line); }
+        .bg-row .n { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bg-row .a { font-weight: 700; white-space: nowrap; }
+        .bg-bar { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+        .bg-bar > div { height: 100%; border-radius: 999px; }
+        .trend { display: flex; align-items: flex-end; gap: 6px; height: 150px; }
+        .trend .col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; cursor: pointer; }
+        .trend .bars { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+        .trend .bars span { width: 42%; max-width: 14px; border-radius: 4px 4px 0 0; }
+        .trend .lbl { font-size: 10px; color: var(--faint); font-weight: 700; }
+        .trend .col.sel .lbl { color: var(--text); }
+        .trend .col.sel .bars { background: rgba(255,255,255,.04); border-radius: 6px; }
+        .person-tag { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+        .person-tag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .edit-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 13px; }
+        .edit-item + .edit-item { border-top: 1px solid var(--line); }
+
         /* ===== 레이아웃: PC ===== */
         @media (min-width: 768px) {
             .mobile-only { display: none !important; }
@@ -220,7 +261,7 @@
             .tabbar button.active { color: var(--text); }
             .tabbar button.active i { color: var(--brand); }
             .fab { position: fixed; right: 18px; bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom)); z-index: 41; }
-            body[data-tab="me"] .fab, body[data-tab="stats"] .fab { display: none; }
+            body[data-tab="me"] .fab.sched-only, body[data-tab="stats"] .fab.sched-only { display: none; }
 
             .fc .fc-toolbar.fc-header-toolbar { margin-bottom: .7rem; }
             .fc .fc-toolbar-title { font-size: 1.2rem; }
@@ -262,20 +303,29 @@
         <header class="shrink-0 h-14 md:h-16 px-4 md:px-6 flex items-center gap-4 border-b" style="border-color: var(--line); background: var(--bg)">
             <div class="flex items-center gap-2 shrink-0">
                 <span class="w-8 h-8 rounded-lg bg-netRed flex items-center justify-center"><i class="fa-regular fa-calendar-check text-white text-sm"></i></span>
-                <span class="font-black text-lg md:text-xl tracking-tight">Time Schedule</span>
+                <span class="hidden sm:inline font-black text-lg md:text-xl tracking-tight">Time Schedule</span>
             </div>
-            <div class="desk-only flex-1 min-w-0 flex items-center justify-center">
+            <!-- 일정 / 예산 전환 (예산은 일정과 완전히 별도 화면) -->
+            <div class="mode-switch shrink-0">
+                <button data-mode-btn="schedule" onclick="setMode('schedule')"><i class="fa-regular fa-calendar"></i> 일정</button>
+                <button data-mode-btn="budget" onclick="setMode('budget')"><i class="fa-solid fa-wallet"></i> 예산</button>
+            </div>
+            <div class="desk-only sched-only flex-1 min-w-0 flex items-center justify-center">
                 <div class="chip-row filter-chips"></div>
             </div>
+            <div class="budget-only flex-1"></div>
             <div class="flex items-center gap-3 ml-auto md:ml-0">
-                <button onclick="openAddModal(selectedDate)" class="desk-only btn-primary px-4 py-2.5 text-sm flex items-center gap-2">
+                <button onclick="openAddModal(selectedDate)" class="desk-only sched-only btn-primary px-4 py-2.5 text-sm flex items-center gap-2">
                     <i class="fa-solid fa-plus"></i> 새 일정
+                </button>
+                <button onclick="openBudgetInput()" class="desk-only budget-only btn-primary px-4 py-2.5 text-sm flex items-center gap-2" style="background:#16a34a">
+                    <i class="fa-solid fa-pen"></i> 가계부 입력
                 </button>
                 <div id="user-profile" class="relative"></div>
             </div>
         </header>
 
-        <main class="app-main">
+        <main class="app-main sched-only">
             <!-- 캘린더 -->
             <section id="panel-calendar" class="panel">
                 <div class="mobile-only chip-row filter-chips mb-3"></div>
@@ -336,15 +386,37 @@
             </section>
         </main>
 
-        <nav class="tabbar mobile-only">
+        <!-- ===== 예산 (가계부) — 일정과 별개 화면 ===== -->
+        <section id="budget-app" class="budget-only">
+            <div class="budget-wrap">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h2 class="text-2xl font-extrabold">우리집 경제</h2>
+                        <p id="bg-updated" class="text-xs text-gray-500 mt-0.5">가계부 시트 기준</p>
+                    </div>
+                    <div class="flex items-center gap-1 rounded-xl p-1" style="background: var(--surface-2)">
+                        <button onclick="shiftBudgetMonth(-1)" class="w-9 h-9 rounded-lg hover:bg-white/5" aria-label="이전 달"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span id="bg-month" class="px-2 font-bold text-sm whitespace-nowrap min-w-[92px] text-center"></span>
+                        <button onclick="shiftBudgetMonth(1)" class="w-9 h-9 rounded-lg hover:bg-white/5" aria-label="다음 달"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div id="bg-body"><div class="empty"><i class="fa-solid fa-spinner fa-spin mr-2"></i> 가계부를 불러오는 중...</div></div>
+            </div>
+        </section>
+
+        <nav class="tabbar mobile-only sched-only">
             <button data-tab-btn="home" onclick="setTab('home')"><i class="fa-solid fa-house"></i>홈</button>
             <button data-tab-btn="calendar" onclick="setTab('calendar')"><i class="fa-regular fa-calendar"></i>캘린더</button>
             <button data-tab-btn="blog" onclick="setTab('blog')"><i class="fa-solid fa-pen-nib"></i>협찬</button>
             <button data-tab-btn="stats" onclick="setTab('stats')"><i class="fa-solid fa-chart-simple"></i>통계</button>
             <button data-tab-btn="me" onclick="setTab('me')"><i class="fa-regular fa-user"></i>내 정보</button>
         </nav>
+        <button onclick="openBudgetInput()" aria-label="가계부 입력"
+                class="fab mobile-only budget-only w-14 h-14 rounded-full text-white text-xl shadow-xl flex items-center justify-center" style="background:#16a34a">
+            <i class="fa-solid fa-pen"></i>
+        </button>
         <button onclick="openAddModal(selectedDate)" aria-label="일정 추가"
-                class="fab mobile-only w-14 h-14 rounded-full bg-netRed hover:bg-[#b8070f] text-white text-2xl shadow-xl shadow-red-900/40 flex items-center justify-center">
+                class="fab mobile-only sched-only w-14 h-14 rounded-full bg-netRed hover:bg-[#b8070f] text-white text-2xl shadow-xl shadow-red-900/40 flex items-center justify-center">
             <i class="fa-solid fa-plus"></i>
         </button>
     </div>
@@ -521,6 +593,59 @@
             <div id="detail-actions" class="hidden p-5 pt-0 flex gap-3">
                 <button onclick="startEdit()" class="btn-primary flex-1 py-3.5"><i class="fa-solid fa-pen mr-1"></i> 수정</button>
                 <button onclick="deleteCurrent()" id="btn-delete" class="btn-ghost flex-1 py-3.5"><i class="fa-regular fa-trash-can mr-1"></i> 삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. 모달: 가계부 입력 (보너스 · 카드값 · 관리비) -->
+    <div id="budget-modal" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4 opacity-0">
+        <div class="sheet w-full max-w-md overflow-hidden max-h-[95dvh] overflow-y-auto">
+            <div class="sheet-handle"></div>
+            <div class="px-5 pt-4 pb-2 flex justify-between items-center">
+                <h3 class="text-xl font-extrabold">가계부 입력</h3>
+                <button onclick="closeModal('budget-modal')" class="w-9 h-9 rounded-full hover:bg-white/10 text-gray-400 hover:text-white" aria-label="닫기"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p class="px-5 text-xs text-gray-400 leading-relaxed">입력하면 몇 분 안에 '가계부' 시트의 해당 칸에 반영돼요. 나머지 항목은 시트에서 직접 고쳐 주세요.</p>
+            <div class="p-5 space-y-4">
+                <div class="seg" id="bi-kind">
+                    <button type="button" data-v="bonus" onclick="setBi('kind', 'bonus')"><i class="fa-solid fa-gift mr-1"></i>보너스</button>
+                    <button type="button" data-v="card" onclick="setBi('kind', 'card')"><i class="fa-regular fa-credit-card mr-1"></i>카드값</button>
+                    <button type="button" data-v="utility" onclick="setBi('kind', 'utility')"><i class="fa-solid fa-bolt mr-1"></i>관리비</button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><span class="label">연도</span><select id="bi-year" class="net-input cursor-pointer" onchange="setBi('year', this.value)"></select></div>
+                    <div><span class="label">월</span><select id="bi-month" class="net-input cursor-pointer" onchange="setBi('month', this.value)"></select></div>
+                </div>
+                <div id="bi-person-wrap">
+                    <span class="label">누구</span>
+                    <div class="seg" id="bi-person" style="grid-template-columns: repeat(2, 1fr)">
+                        <button type="button" data-v="다훈" onclick="setBi('person', '다훈')">다훈</button>
+                        <button type="button" data-v="성완" onclick="setBi('person', '성완')">성완</button>
+                    </div>
+                </div>
+                <div>
+                    <span class="label">항목</span>
+                    <div id="bi-items" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div id="bi-current" class="rounded-xl px-4 py-3 text-sm" style="background: var(--surface-2)"></div>
+                <div>
+                    <span class="label">금액</span>
+                    <label class="money-row"><span id="bi-amount-label">금액</span><input type="text" inputmode="numeric" id="bi-amount" class="money-input" placeholder="0" oninput="onMoneyInput(this); renderBudgetPreview()"><em>원</em></label>
+                </div>
+                <div>
+                    <span class="label">입력 방식</span>
+                    <div class="seg" id="bi-mode" style="grid-template-columns: repeat(2, 1fr)">
+                        <button type="button" data-v="add" onclick="setBi('mode', 'add')">누적 더하기</button>
+                        <button type="button" data-v="set" onclick="setBi('mode', 'set')">이 금액으로 바꾸기</button>
+                    </div>
+                    <p id="bi-preview" class="text-sm mt-2 text-gray-300"></p>
+                </div>
+                <input type="text" id="bi-note" maxlength="50" class="net-input" placeholder="메모 (선택, 예: 성과급 2차)">
+                <p id="bi-error" class="text-red-400 text-sm hidden"></p>
+            </div>
+            <div class="px-5 pb-5 flex gap-3">
+                <button onclick="saveBudgetEdit()" id="bi-save" class="btn-primary flex-1 py-3.5" style="background:#16a34a">입력하기</button>
+                <button onclick="closeModal('budget-modal')" class="btn-ghost flex-1 py-3.5">취소</button>
             </div>
         </div>
     </div>
@@ -1363,6 +1488,9 @@
             setSide('home');
             setTab('home');
             initCalendar();
+            let savedMode = 'schedule';
+            try { savedMode = localStorage.getItem('nc_mode') || 'schedule'; } catch (e) {}
+            setMode(savedMode === 'budget' ? 'budget' : 'schedule');
             loadSummary();
             loadBlogList();
         }
@@ -2001,7 +2129,7 @@
         });
 
         // ===== 모달 공통 =====
-        const MODALS = ['add-modal', 'details-modal', 'members-modal'];
+        const MODALS = ['add-modal', 'details-modal', 'members-modal', 'budget-modal'];
 
         function openModal(id) {
             const m = document.getElementById(id);
@@ -2369,6 +2497,368 @@
                 showError('오류: ' + friendlyError(err));
             } finally {
                 btn.textContent = label;
+                btn.disabled = false;
+            }
+        }
+
+        // =====================================================================
+        // 예산 (가계부) — 일정과 완전히 별개. 데이터는 '가계부' 시트가 기준
+        //  budget/summary : Apps Script 가 5분마다 시트를 읽어 만든 요약 (읽기 전용)
+        //  budgetEdits    : 앱에서 넣은 보너스·카드값·관리비 → Apps Script 가 시트 칸에 반영
+        // =====================================================================
+        const BUDGET_ITEMS = {
+            bonus: { '다훈': ['보너스(회사)'], '성완': ['보너스(회사)'] },
+            card: { '다훈': ['삼성카드', '신한카드', '백화점카드'], '성완': ['신한카드', '국민카드', '삼성카드(주유)'] },
+            utility: { '다훈': ['관리비', '가스비'] }
+        };
+        const BUDGET_KIND_LABEL = { bonus: '보너스', card: '카드값', utility: '관리비·가스비' };
+        const BUDGET_TOTAL_LABELS = ['소합계', '합계', '총합', '고정비용', '월 수입'];
+        const PERSON_COLOR = { '다훈': '#ec4899', '성완': '#3b82f6', '특별예산': '#eab308' };
+        const won = n => `${(Number(n) || 0) < 0 ? '−' : ''}${fmtMoney(Math.abs(Number(n) || 0))}원`;
+        const ymLabel = ym => ym ? `${ym.slice(0, 4)}년 ${Number(ym.slice(5, 7))}월` : '';
+        const ymShort = ym => `${Number(ym.slice(5, 7))}월`;
+        const ymNow = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+        const ymShift = (ym, n) => { const d = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+        const myPerson = () => (currentUser && /성완/.test(currentUser.name)) ? '성완' : '다훈';
+
+        let budget = null;          // budget/summary
+        let budgetYm = null;        // 보고 있는 달
+        let budgetEdits = [];       // 최근 입력 기록
+        let budgetUnsub = null;
+        let bi = { kind: 'bonus', year: '', month: '', person: '성완', item: '보너스(회사)', mode: 'add' };
+
+        function setMode(mode) {
+            document.body.dataset.mode = mode;
+            document.querySelectorAll('[data-mode-btn]').forEach(b => b.classList.toggle('active', b.dataset.modeBtn === mode));
+            try { localStorage.setItem('nc_mode', mode); } catch (e) {}
+            if (mode === 'budget') startBudget();
+            else if (calendar) setTimeout(() => calendar.updateSize(), 50);
+        }
+
+        function startBudget() {
+            if (budgetUnsub) return renderBudget();
+            const s1 = db.collection('budget').doc('summary').onSnapshot(snap => {
+                budget = snap.exists ? snap.data() : null;
+                if (!budgetYm) budgetYm = defaultBudgetYm();
+                renderBudget();
+            }, err => {
+                document.getElementById('bg-body').innerHTML = `<div class="empty text-red-400">가계부를 불러오지 못했습니다.<br><span class="text-xs text-gray-500">${escapeHtml(friendlyError(err))}</span></div>`;
+            });
+            const s2 = db.collection('budgetEdits').orderBy('createdAt', 'desc').limit(30).onSnapshot(snap => {
+                budgetEdits = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderBudget();
+            }, err => console.error(err));
+            budgetUnsub = () => { s1(); s2(); };
+        }
+
+        function budgetMonths() { return (budget && Array.isArray(budget.months)) ? budget.months.slice().sort((a, b) => a.ym.localeCompare(b.ym)) : []; }
+
+        function defaultBudgetYm() {
+            const ms = budgetMonths();
+            const now = ymNow();
+            if (ms.some(m => m.ym === now)) return now;
+            return ms.length ? ms[ms.length - 1].ym : now;
+        }
+
+        function shiftBudgetMonth(n) {
+            budgetYm = ymShift(budgetYm || ymNow(), n);
+            renderBudget();
+        }
+
+        function selectBudgetMonth(ym) { budgetYm = ym; renderBudget(); }
+
+        // 숫자 칸 묶음에서 합계류 칸을 뺀 항목만
+        function budgetItems(groupObj) {
+            return Object.entries(groupObj || {}).filter(([k, v]) => !BUDGET_TOTAL_LABELS.includes(k) && Number(v));
+        }
+
+        function renderBudget() {
+            const body = document.getElementById('bg-body');
+            const ym = budgetYm || ymNow();
+            document.getElementById('bg-month').textContent = ymLabel(ym);
+            if (!budget) {
+                body.innerHTML = '<div class="empty">아직 시트 데이터가 없어요.<br>동기화되면 몇 분 안에 여기에 나타나요.</div>';
+                return;
+            }
+            if (budget.updatedAt) {
+                const mins = Math.max(0, Math.round((Date.now() - budget.updatedAt.toDate()) / 60000));
+                document.getElementById('bg-updated').textContent = `가계부 시트 기준 · ${mins < 1 ? '방금' : mins + '분 전'} 갱신`;
+            }
+            const months = budgetMonths();
+            const m = months.find(x => x.ym === ym);
+            const prev = months.find(x => x.ym === ymShift(ym, -1));
+            const income = (budget.income || {})[ym] || {};
+            const spend = (budget.spend || {})[ym] || {};
+            const fixed = (budget.fixed || {})[ym] || {};
+            const assets = (budget.assets || {})[ym] || {};
+
+            const diff = (cur, old, goodUp) => {
+                if (!old && old !== 0) return '';
+                const d = cur - old;
+                if (!d) return '<span class="s">지난달과 같음</span>';
+                const good = goodUp ? d > 0 : d < 0;
+                return `<div class="s"><span class="${good ? 'pos' : 'neg'}">${d > 0 ? '▲' : '▼'} ${fmtMoney(Math.abs(d))}</span> 지난달 대비</div>`;
+            };
+            const kpi = (icon, k, v, sub, cls = '') => `
+                <div class="kpi"><div class="k"><i class="${icon}"></i>${k}</div><div class="v ${cls}">${won(v)}</div>${sub || ''}</div>`;
+
+            const kpis = m ? `
+                <div class="kpis mb-3">
+                    ${kpi('fa-solid fa-arrow-down text-green-400', '수입', m.income, diff(m.income, prev && prev.income, true))}
+                    ${kpi('fa-solid fa-house text-gray-400', '고정비용', m.fixed, diff(m.fixed, prev && prev.fixed, false))}
+                    ${kpi('fa-solid fa-arrow-up text-red-400', '지출', m.spend, diff(m.spend, prev && prev.spend, false))}
+                    ${kpi('fa-solid fa-scale-balanced text-gray-400', '월말 정산', m.settle, `<div class="s">수입 − 고정비용 − 지출</div>`, m.settle >= 0 ? 'pos' : 'neg')}
+                </div>` : `<div class="empty mb-3">${ymLabel(ym)} 데이터가 시트에 아직 없어요.</div>`;
+
+            // 자산
+            const assetRows = Object.entries(assets).flatMap(([g, items]) => Object.entries(items).map(([k, v]) => ({ g, k, v })))
+                .filter(x => x.v).sort((a, b) => b.v - a.v);
+            const assetMax = Math.max(1, ...assetRows.map(x => x.v));
+            const assetCard = `
+                <div class="bg-card">
+                    <h3>자산 현황 <small>계산서 총괄</small></h3>
+                    ${m && m.assetTotal ? `
+                        <div class="text-3xl font-extrabold">${won(m.assetTotal)}</div>
+                        ${m.assetDelta ? `<div class="text-sm mt-1 ${m.assetDelta >= 0 ? 'pos' : 'neg'}">${m.assetDelta > 0 ? '▲' : '▼'} ${fmtMoney(Math.abs(m.assetDelta))}원 <span class="text-gray-500">지난달 대비</span></div>` : ''}
+                        <div class="mt-4 space-y-2.5">${assetRows.map(x => `
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="text-gray-300">${escapeHtml(x.k)} <span class="text-gray-500 text-xs">${escapeHtml(x.g)}</span></span><span class="font-bold">${won(x.v)}</span></div>
+                                <div class="bg-bar"><div style="width:${Math.max(3, x.v / assetMax * 100)}%;background:${x.g === '주식' ? '#a78bfa' : '#38bdf8'}"></div></div>
+                            </div>`).join('')}</div>`
+                        : '<p class="text-sm text-gray-500">이 달 자산 기록이 없어요.</p>'}
+                </div>`;
+
+            // 12개월 추이
+            const recent = months.filter(x => x.ym <= ym).slice(-12);
+            const maxV = Math.max(1, ...recent.map(x => Math.max(x.income, x.fixed + x.spend)));
+            const avg = k => recent.length ? Math.round(recent.reduce((a, x) => a + (k === 'out' ? x.fixed + x.spend : x[k]), 0) / recent.length) : 0;
+            const trendCard = `
+                <div class="bg-card">
+                    <h3>월별 흐름 <small><span class="pos">■</span> 수입 <span class="neg ml-1">■</span> 고정비+지출</small></h3>
+                    ${recent.length ? `
+                        <div class="trend">${recent.map(x => `
+                            <div class="col ${x.ym === ym ? 'sel' : ''}" onclick="selectBudgetMonth('${x.ym}')" title="${ymLabel(x.ym)} · 수입 ${fmtMoney(x.income)} / 지출 ${fmtMoney(x.fixed + x.spend)}">
+                                <div class="bars">
+                                    <span style="height:${Math.max(2, x.income / maxV * 100)}%;background:#22c55e"></span>
+                                    <span style="height:${Math.max(2, (x.fixed + x.spend) / maxV * 100)}%;background:#ef4444"></span>
+                                </div>
+                                <div class="lbl">${ymShort(x.ym)}</div>
+                            </div>`).join('')}</div>
+                        <div class="grid grid-cols-3 gap-2 mt-4 text-center">
+                            <div><div class="text-xs text-gray-500">평균 수입</div><div class="font-bold text-sm mt-0.5">${won(avg('income'))}</div></div>
+                            <div><div class="text-xs text-gray-500">평균 지출</div><div class="font-bold text-sm mt-0.5">${won(avg('out'))}</div></div>
+                            <div><div class="text-xs text-gray-500">평균 정산</div><div class="font-bold text-sm mt-0.5 ${avg('settle') >= 0 ? 'pos' : 'neg'}">${won(avg('settle'))}</div></div>
+                        </div>` : '<p class="text-sm text-gray-500">기록이 없어요.</p>'}
+                </div>`;
+
+            // 사람별
+            const personCard = `
+                <div class="bg-card">
+                    <h3>사람별 <small>${ymShort(ym)}</small></h3>
+                    <div class="grid grid-cols-2 gap-3">${['다훈', '성완'].map(p => {
+                        const inc = income[p] || {}, sp = spend[p] || {};
+                        const incTotal = Number(inc['합계']) || budgetItems(inc).reduce((a, [, v]) => a + v, 0);
+                        const spTotal = Number(sp['소합계']) || budgetItems(sp).reduce((a, [, v]) => a + v, 0);
+                        const fx = Number(sp['고정비용']) || 0;
+                        const left = sp['합계'] !== undefined ? Number(sp['합계']) : incTotal - spTotal - fx;
+                        const bonus = Number(inc['보너스(회사)']) || 0;
+                        return `
+                            <div class="rounded-xl p-3" style="background: var(--surface-2)">
+                                <div class="person-tag mb-2"><i style="background:${PERSON_COLOR[p]}"></i>${p}</div>
+                                <div class="text-xs text-gray-400">수입</div><div class="font-bold">${won(incTotal)}</div>
+                                ${bonus ? `<div class="text-xs text-green-400 mt-0.5">보너스 ${fmtMoney(bonus)} 포함</div>` : ''}
+                                <div class="text-xs text-gray-400 mt-2">지출</div><div class="font-bold">${won(spTotal)}</div>
+                                <div class="text-xs text-gray-400 mt-2">고정비용</div><div class="font-bold">${won(fx)}</div>
+                                <div class="text-xs text-gray-400 mt-2">남은 돈</div><div class="font-extrabold ${left >= 0 ? 'pos' : 'neg'}">${won(left)}</div>
+                            </div>`;
+                    }).join('')}</div>
+                </div>`;
+
+            // 지출 항목 / 고정비용 항목
+            const listCard = (title, src, sub) => {
+                const rows = Object.entries(src).flatMap(([g, items]) => budgetItems(items).map(([k, v]) => ({ g, k, v }))).sort((a, b) => b.v - a.v);
+                const max = Math.max(1, ...rows.map(r => r.v));
+                return `
+                    <div class="bg-card">
+                        <h3>${title} <small>${sub}</small></h3>
+                        ${rows.length ? rows.map(r => `
+                            <div class="bg-row">
+                                <span class="person-tag text-xs" style="width:62px"><i style="background:${PERSON_COLOR[r.g] || '#71717a'}"></i>${escapeHtml(r.g)}</span>
+                                <span class="n">${escapeHtml(r.k)}</span>
+                                <span class="w-16 bg-bar hidden sm:block"><div style="width:${Math.max(4, r.v / max * 100)}%;background:${PERSON_COLOR[r.g] || '#71717a'}"></div></span>
+                                <span class="a">${won(r.v)}</span>
+                            </div>`).join('') : '<p class="text-sm text-gray-500">이 달 기록이 없어요.</p>'}
+                    </div>`;
+            };
+
+            // 입력 카드: 이번 달 보너스·카드값·관리비 현재 값 + 최근 입력
+            const ed = (budget.editable || {});
+            const cur = (kind, p, item) => { const x = ed[`${ym}|${kind}|${p}|${item}`]; return x ? x.v : 0; };
+            const pendingFor = (kind, p, item) => budgetEdits.filter(e => e.status === 'pending' && e.ym === ym && e.kind === kind && e.person === p && e.item === item);
+            const inputRow = (kind, p, item) => {
+                const pend = pendingFor(kind, p, item);
+                return `
+                    <button class="edit-item w-full text-left hover:bg-white/5 rounded-lg px-1" onclick="openBudgetInput('${kind}', '${p}', '${escapeHtml(item)}')">
+                        <span class="person-tag text-xs" style="width:62px"><i style="background:${PERSON_COLOR[p]}"></i>${kind === 'utility' ? '공용' : p}</span>
+                        <span class="flex-1 text-gray-300">${escapeHtml(item)}</span>
+                        ${pend.length ? `<span class="tag" style="background: rgba(234,179,8,.15); color:#facc15">반영 대기 ${pend.length}</span>` : ''}
+                        <span class="font-bold">${won(cur(kind, p, item))}</span>
+                        <i class="fa-solid fa-pen text-xs text-gray-500"></i>
+                    </button>`;
+            };
+            const inputCard = `
+                <div class="bg-card">
+                    <h3>앱에서 입력하는 항목 <small>${ymShort(ym)} · 누르면 입력</small></h3>
+                    <p class="text-xs text-gray-500 mb-1 mt-2">🎁 보너스</p>
+                    ${inputRow('bonus', '다훈', '보너스(회사)')}${inputRow('bonus', '성완', '보너스(회사)')}
+                    <p class="text-xs text-gray-500 mb-1 mt-3">💳 카드값</p>
+                    ${BUDGET_ITEMS.card['다훈'].map(i => inputRow('card', '다훈', i)).join('')}
+                    ${BUDGET_ITEMS.card['성완'].map(i => inputRow('card', '성완', i)).join('')}
+                    <p class="text-xs text-gray-500 mb-1 mt-3">⚡ 관리비·가스비</p>
+                    ${BUDGET_ITEMS.utility['다훈'].map(i => inputRow('utility', '다훈', i)).join('')}
+                </div>`;
+
+            body.innerHTML = `
+                ${kpis}
+                <div class="bg-grid two mb-3">${trendCard}${assetCard}</div>
+                <div class="bg-grid two mb-3">${personCard}${inputCard}</div>
+                <div class="bg-grid two mb-3">${listCard('지출 항목', spend, ymShort(ym))}${listCard('고정비용', fixed, ymShort(ym))}</div>
+                ${renderBudgetHistoryHtml()}`;
+        }
+
+        function renderBudgetHistoryHtml() {
+            if (!budgetEdits.length) return '';
+            const st = {
+                pending: '<span class="tag" style="background: rgba(234,179,8,.15); color:#facc15"><i class="fa-regular fa-clock"></i> 반영 대기</span>',
+                done: '<span class="tag" style="background: rgba(34,197,94,.15); color:#4ade80"><i class="fa-solid fa-check"></i> 시트 반영</span>',
+                error: '<span class="tag" style="background: rgba(239,68,68,.15); color:#f87171"><i class="fa-solid fa-triangle-exclamation"></i> 실패</span>'
+            };
+            return `
+                <div class="bg-card">
+                    <h3>최근 입력 기록 <small>최근 30건</small></h3>
+                    ${budgetEdits.map(e => {
+                        const when = e.createdAt && e.createdAt.toDate ? e.createdAt.toDate().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                        const mine = e.by === currentUser.email && e.status === 'pending';
+                        return `
+                            <div class="edit-item flex-wrap">
+                                ${st[e.status] || ''}
+                                <span class="flex-1 min-w-0">
+                                    <b>${ymShort(e.ym)}</b> ${escapeHtml(e.kind === 'utility' ? '공용' : e.person)} · ${escapeHtml(e.item)}
+                                    <span class="${e.mode === 'add' ? 'text-green-400' : 'text-gray-300'}">${e.mode === 'add' ? '+' : '='}${fmtMoney(e.amount)}</span>
+                                    ${e.status === 'done' && e.result !== undefined ? `<span class="text-gray-500">→ ${fmtMoney(e.result)}원</span>` : ''}
+                                    ${e.note ? `<span class="text-gray-500">· ${escapeHtml(e.note)}</span>` : ''}
+                                    ${e.status === 'error' ? `<br><span class="text-xs text-red-400">${escapeHtml(e.error || '')}</span>` : ''}
+                                </span>
+                                <span class="text-xs text-gray-500">${escapeHtml(e.byName || '')} ${when}</span>
+                                ${mine ? `<button onclick="cancelBudgetEdit('${e.id}')" class="text-xs text-gray-400 hover:text-red-400 px-1">취소</button>` : ''}
+                            </div>`;
+                    }).join('')}
+                </div>`;
+        }
+
+        async function cancelBudgetEdit(id) {
+            if (!confirm('반영 전 입력을 취소할까요?')) return;
+            try { await db.collection('budgetEdits').doc(id).delete(); }
+            catch (err) { alert('취소 실패: ' + friendlyError(err)); }
+        }
+
+        // ----- 입력창 -----
+        function openBudgetInput(kind, person, item) {
+            const ym = budgetYm || ymNow();
+            bi.kind = kind || 'bonus';
+            bi.person = person || myPerson();
+            if (bi.kind === 'utility') bi.person = '다훈';
+            bi.item = item || (BUDGET_ITEMS[bi.kind][bi.person] || [])[0];
+            bi.mode = bi.kind === 'bonus' ? 'add' : 'set';
+            bi.year = ym.slice(0, 4);
+            bi.month = String(Number(ym.slice(5, 7)));
+            document.getElementById('bi-amount').value = '';
+            document.getElementById('bi-note').value = '';
+            document.getElementById('bi-error').classList.add('hidden');
+            // 연도 목록: 시트에 있는 해 + 올해 ±1
+            const years = new Set(budgetMonths().map(x => x.ym.slice(0, 4)));
+            const y = new Date().getFullYear();
+            [y - 1, y, y + 1].forEach(v => years.add(String(v)));
+            document.getElementById('bi-year').innerHTML = [...years].sort().map(v => `<option value="${v}">${v}년</option>`).join('');
+            document.getElementById('bi-month').innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}월</option>`).join('');
+            renderBudgetModal();
+            openModal('budget-modal');
+        }
+
+        function setBi(key, v) {
+            bi[key] = v;
+            if (key === 'kind') {
+                if (v === 'utility') bi.person = '다훈';
+                bi.mode = v === 'bonus' ? 'add' : 'set';
+            }
+            if (key === 'kind' || key === 'person') {
+                const items = BUDGET_ITEMS[bi.kind][bi.person] || [];
+                if (!items.includes(bi.item)) bi.item = items[0];
+            }
+            renderBudgetModal();
+        }
+
+        function biYm() { return `${bi.year}-${pad(Number(bi.month))}`; }
+        function biCurrent() { return ((budget && budget.editable) || {})[`${biYm()}|${bi.kind}|${bi.person}|${bi.item}`]; }
+
+        function renderBudgetModal() {
+            document.querySelectorAll('#bi-kind button').forEach(b => b.classList.toggle('active', b.dataset.v === bi.kind));
+            document.querySelectorAll('#bi-person button').forEach(b => b.classList.toggle('active', b.dataset.v === bi.person));
+            document.querySelectorAll('#bi-mode button').forEach(b => b.classList.toggle('active', b.dataset.v === bi.mode));
+            document.getElementById('bi-person-wrap').classList.toggle('hidden', bi.kind === 'utility');
+            document.getElementById('bi-year').value = bi.year;
+            document.getElementById('bi-month').value = bi.month;
+            document.getElementById('bi-items').innerHTML = (BUDGET_ITEMS[bi.kind][bi.person] || []).map(i =>
+                `<button type="button" class="opt ${i === bi.item ? 'on' : ''}" onclick="setBi('item', '${escapeHtml(i)}')">${escapeHtml(i)}</button>`).join('');
+            document.getElementById('bi-amount-label').textContent = bi.mode === 'add' ? '이번에 받은/쓴 금액' : '이 달 전체 금액';
+            const c = biCurrent();
+            const box = document.getElementById('bi-current');
+            const save = document.getElementById('bi-save');
+            save.disabled = false;
+            if (!budget) box.innerHTML = '<span class="text-gray-400">시트 값을 아직 못 불러왔어요.</span>';
+            else if (!c) box.innerHTML = `<span class="text-yellow-300"><i class="fa-solid fa-triangle-exclamation mr-1"></i>시트에 ${ymLabel(biYm())} 줄이 없을 수 있어요. 입력하면 반영을 시도하고, 줄이 없으면 실패로 알려드려요.</span>`;
+            else if (c.f) { box.innerHTML = `<span class="text-red-300"><i class="fa-solid fa-lock mr-1"></i>이 칸은 시트에서 수식으로 계산돼요. 앱에서는 바꿀 수 없어요.</span>`; save.disabled = true; }
+            else box.innerHTML = `<span class="text-gray-400">${ymLabel(biYm())} ${bi.kind === 'utility' ? '공용' : bi.person} · ${escapeHtml(bi.item)} 현재 시트 값</span><div class="text-lg font-extrabold mt-0.5">${won(c.v)}</div>`;
+            renderBudgetPreview();
+        }
+
+        function renderBudgetPreview() {
+            const amt = parseMoney(document.getElementById('bi-amount').value);
+            const c = biCurrent();
+            const base = c ? c.v : 0;
+            const after = bi.mode === 'add' ? base + amt : amt;
+            const pend = budgetEdits.filter(e => e.status === 'pending' && e.ym === biYm() && e.kind === bi.kind && e.person === bi.person && e.item === bi.item).length;
+            document.getElementById('bi-preview').innerHTML = amt || bi.mode === 'set'
+                ? `반영 후 예상: <b>${won(after)}</b>${bi.mode === 'add' ? ` <span class="text-gray-500">(${fmtMoney(base)} + ${fmtMoney(amt)})</span>` : ''}${pend ? `<br><span class="text-yellow-300 text-xs">반영 대기 중인 입력 ${pend}건이 먼저 적용돼요.</span>` : ''}`
+                : (bi.kind === 'bonus' ? '<span class="text-gray-500">보너스를 여러 번 나눠 받으면 받을 때마다 "누적 더하기"로 넣어 주세요.</span>' : '');
+        }
+
+        async function saveBudgetEdit() {
+            const err = document.getElementById('bi-error');
+            const show = m => { err.textContent = m; err.classList.remove('hidden'); };
+            err.classList.add('hidden');
+            const amount = parseMoney(document.getElementById('bi-amount').value);
+            if (bi.mode === 'add' && !amount) return show('금액을 입력해 주세요.');
+            if (!document.getElementById('bi-amount').value.trim()) return show('금액을 입력해 주세요. (0원으로 바꾸려면 0)');
+            const c = biCurrent();
+            if (c && c.f) return show('수식 칸이라 앱에서 바꿀 수 없어요.');
+            if (bi.mode === 'set' && c && c.v && amount !== c.v && !confirm(`${ymLabel(biYm())} ${bi.item} 값을 ${won(c.v)} → ${won(amount)}(으)로 바꿀까요?`)) return;
+            const btn = document.getElementById('bi-save');
+            btn.disabled = true;
+            try {
+                await db.collection('budgetEdits').add({
+                    ym: biYm(), kind: bi.kind, person: bi.person, item: bi.item,
+                    amount, mode: bi.mode,
+                    note: document.getElementById('bi-note').value.trim().slice(0, 50),
+                    by: currentUser.email, byName: currentUser.name,
+                    status: 'pending', createdAt: serverNow()
+                });
+                closeModal('budget-modal');
+                budgetYm = biYm();
+                renderBudget();
+            } catch (e) {
+                show('입력 실패: ' + friendlyError(e));
+            } finally {
                 btn.disabled = false;
             }
         }

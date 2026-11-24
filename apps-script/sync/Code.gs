@@ -82,6 +82,9 @@ function syncToCalendar() {
 
     // 5분마다 도는 김에 '약속 1시간 전' 알림도 확인 (실패해도 동기화에는 영향 없음)
     try { sendHourBeforeReminders(docs); } catch (e) { console.log("1시간 전 알림 실패: " + e.message); }
+
+    // 가계부: 앱에서 넣은 입력을 시트에 반영하고, 시트 요약을 앱으로 보냄 (일정과는 완전히 별개)
+    try { syncBudget(); } catch (e) { console.log("가계부 동기화 실패: " + e.message); }
   } finally {
     lock.releaseLock();
   }
