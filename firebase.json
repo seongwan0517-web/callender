@@ -20,7 +20,6 @@
       "firebase.json",
       "firestore.rules",
       "firestore.indexes.json",
-      "config.js",
       "apps-script/**",
       "**/.*",
       "**/node_modules/**"

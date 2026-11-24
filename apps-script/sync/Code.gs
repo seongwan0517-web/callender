@@ -183,6 +183,22 @@ function migrateFromCalendar() {
 //  - 블로그 협찬: 알림을 켠 멤버 전원
 //  - 회사/개인 일정: 등록한 사람
 const REMINDER_HOUR = 9;
+// firestore.rules / index.html 의 관리자와 같게 유지
+const ADMIN_EMAILS = ["seongwan0517@gmail.com"];
+
+// 알림 받을 기기: 지금 멤버(관리자 + config/access 목록)인 사람의 기기만
+// (멤버에서 빠진 사람은 휴대폰에 토큰이 남아 있어도 알림을 받지 않음)
+function activeTokens() {
+  var members = ADMIN_EMAILS.slice();
+  try {
+    const doc = fsFetch("/config/access");
+    const v = doc.fields && doc.fields.emails && doc.fields.emails.arrayValue;
+    ((v && v.values) || []).forEach(function (x) { if (x.stringValue) members.push(x.stringValue.toLowerCase()); });
+  } catch (e) { console.log("멤버 목록을 못 읽음: " + e.message); }
+  return listDocs("pushTokens").filter(function (t) {
+    return members.indexOf(String(t.data.email || "").toLowerCase()) !== -1;
+  });
+}
 
 function setupReminders() {
   ScriptApp.getProjectTriggers()
@@ -197,7 +213,7 @@ function sendDailyReminders() {
   const today = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
   const tomorrow = Utilities.formatDate(new Date(Date.now() + DAY), tz, "yyyy-MM-dd");
 
-  const tokens = listDocs("pushTokens");
+  const tokens = activeTokens();
   if (!tokens.length) return;
   const everyone = unique(tokens.map(function (t) { return t.data.email; }));
 
@@ -259,7 +275,7 @@ function sendHourBeforeReminders(docs) {
   });
 
   if (due.length) {
-    const tokens = listDocs("pushTokens");
+    const tokens = activeTokens();
     due.forEach(function (doc) {
       const d = doc.data;
       const mins = Math.max(1, Math.round((new Date(d.start).getTime() - now) / 60000));
