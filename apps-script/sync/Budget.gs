@@ -1,6 +1,6 @@
 // =====================================================================
 // 가계부 (예산 보기) — 타임 스케줄과는 완전히 별개
-//  - 시트 → 앱: 총괄/수입/지출/고정비용/계산서 탭을 읽어 Firestore budget/summary 에 요약 저장
+//  - 시트 → 앱: 총괄/수입/지출/고정비용 탭을 읽어 Firestore budget/summary 에 요약 저장
 //  - 앱 → 시트: 앱에서 넣은 보너스·카드값·관리비(budgetEdits, status=pending)를 시트 칸에 반영
 //  - 앱은 BUDGET_EDITABLE 에 적힌 칸에만 쓰고, 수식이 있는 칸은 절대 바꾸지 않음
 //  - syncToCalendar(5분마다)가 syncBudget() 을 부름
@@ -11,8 +11,8 @@ const BUDGET_TABS = {
   income: "수입(최종)",
   spend: "지출(최종)",
   fixed: "고정비용(최종)",
-  assets: "계산서 총괄",
 };
+// 자산(예적금·비트·주식·IRP 등)은 정확하지 않아서 앱으로 가져오지 않음 — '계산서 총괄' 탭은 읽지 않는다
 const BUDGET_PEOPLE = ["다훈", "성완"];
 const BUDGET_EDITABLE = {
   bonus:   { tab: "income", items: { "다훈": ["보너스(회사)"], "성완": ["보너스(회사)"] } },
@@ -147,7 +147,6 @@ function colLetter(c) {
 // ---------- 시트 → 앱 요약 ----------
 function writeBudgetSummary(ss) {
   const sum = readBudgetTab(ss, "summary");
-  const assets = readBudgetTab(ss, "assets");
   const income = readBudgetTab(ss, "income");
   const spend = readBudgetTab(ss, "spend");
   const fixed = readBudgetTab(ss, "fixed");
@@ -159,19 +158,14 @@ function writeBudgetSummary(ss) {
 
   // 월별 총괄
   const months = sum.rows.map(function (row) {
-    const a = assets.rows.filter(function (x) { return x.ym === row.ym; })[0];
     return {
       ym: row.ym,
       income: val(sum, row.r, "수입"),
       fixed: val(sum, row.r, "고정비용"),
       spend: val(sum, row.r, "지출"),
       settle: val(sum, row.r, "월말 정산"),
-      special: a ? val(assets, a.r, "특별지출") : 0,
-      fund: a ? val(assets, a.r, "자금마련") : 0,
-      assetTotal: a ? val(assets, a.r, "총액") : 0,
-      assetDelta: a ? val(assets, a.r, "증감액") : 0,
     };
-  }).filter(function (m) { return m.income || m.fixed || m.spend || m.assetTotal; });
+  }).filter(function (m) { return m.income || m.fixed || m.spend; });
 
   // 탭별 상세: { ym: { 묶음: { 칸: 금액 } } } — 숫자가 있는 칸만
   function detail(m) {
@@ -189,22 +183,6 @@ function writeBudgetSummary(ss) {
     });
     return out;
   }
-
-  // 자산 구성: 계산서 총괄의 예적금 / 주식 칸 (머리글 첫 줄이 묶음 이름)
-  const assetGroups = {};
-  assets.rows.forEach(function (row) {
-    const g = {};
-    var top = "";
-    assets.cols.forEach(function (col) {
-      const t = String(assets.values[0][col.c] || "").trim();
-      if (t) top = t;
-      if (["예적금", "주식"].indexOf(top) === -1 || !col.label || col.label === top) return;
-      const v = assets.values[row.r][col.c];
-      if (typeof v !== "number") return;
-      (g[top] = g[top] || {})[col.label] = v;
-    });
-    if (Object.keys(g).length) assetGroups[row.ym] = g;
-  });
 
   // 앱 입력창에 보여줄 현재 값 (고칠 수 있는 칸만) — "YYYY-MM|종류|사람|칸" → { v: 금액, f: 수식 여부 }
   const editable = {};
@@ -230,7 +208,7 @@ function writeBudgetSummary(ss) {
     income: detail(income),
     spend: detail(spend),
     fixed: detail(fixed),
-    assets: assetGroups,
+    assets: {},          // 예전에 저장한 자산 정보 비우기
     editable: editable,
   });
 }
