@@ -9,6 +9,7 @@
  *   1) migrateFromCalendar 실행 — 예전 앱이 캘린더에 만든 일정을 Firestore 로 옮김
  *   2) setup 실행 — 5분마다 syncToCalendar 가 돌도록 트리거 등록
  *   3) setupReminders 실행 — 매일 아침 9시 푸시 알림(sendDailyReminders) 트리거 등록
+ *      (시간이 정해진 협찬의 '1시간 전 알림'은 syncToCalendar 가 5분마다 함께 확인)
  *
  * 알림 테스트: sendTestPush 실행 → 관리자(내) 휴대폰으로 테스트 알림
  */
@@ -53,8 +54,9 @@ function syncToCalendar() {
 
     const seen = {};
     var created = 0, updated = 0, removed = 0;
+    const docs = listDocs("events");
 
-    listDocs("events").forEach(function (doc) {
+    docs.forEach(function (doc) {
       seen[doc.id] = true;
       const d = doc.data;
       const range = docRange(d);
@@ -77,6 +79,9 @@ function syncToCalendar() {
     if (created || updated || removed) {
       console.log("동기화: 추가 " + created + ", 수정 " + updated + ", 삭제 " + removed);
     }
+
+    // 5분마다 도는 김에 '약속 1시간 전' 알림도 확인 (실패해도 동기화에는 영향 없음)
+    try { sendHourBeforeReminders(docs); } catch (e) { console.log("1시간 전 알림 실패: " + e.message); }
   } finally {
     lock.releaseLock();
   }
@@ -232,6 +237,44 @@ function sendDailyReminders() {
     });
   });
   console.log("알림 발송 " + sent + "건, 만료 토큰 정리 " + removed + "건");
+}
+
+// 시간이 정해진 협찬 일정: 약속 1시간 전에 알림 (협찬이므로 알림을 켠 멤버 전원)
+// syncToCalendar(5분마다)가 부르며, 같은 일정·같은 시각에는 한 번만 보냄 (시간을 바꾸면 다시 보냄)
+const BEFORE_MINUTES = 60;
+
+function sendHourBeforeReminders(docs) {
+  const now = Date.now();
+  const tz = Session.getScriptTimeZone();
+  const props = PropertiesService.getScriptProperties();
+  const sent = JSON.parse(props.getProperty("PRE_SENT") || "{}");
+  var changed = false;
+  Object.keys(sent).forEach(function (k) { if (sent[k] < now - 2 * DAY) { delete sent[k]; changed = true; } });
+
+  const due = docs.filter(function (doc) {
+    const d = doc.data;
+    if (d.category !== BLOG_CATEGORY || d.allDay || d.done || !d.start) return false;
+    const until = (new Date(d.start).getTime() - now) / 60000;
+    return until > 0 && until <= BEFORE_MINUTES && !sent[doc.id + "|" + d.start];
+  });
+
+  if (due.length) {
+    const tokens = listDocs("pushTokens");
+    due.forEach(function (doc) {
+      const d = doc.data;
+      const mins = Math.max(1, Math.round((new Date(d.start).getTime() - now) / 60000));
+      const when = mins >= 55 ? "1시간" : mins + "분";
+      const title = "⏰ " + when + " 뒤 협찬 일정";
+      const body = Utilities.formatDate(new Date(d.start), tz, "HH:mm") + " " + d.title + (d.address ? "\n📍 " + d.address : "");
+      tokens.forEach(function (t) {
+        if (sendPush(t.id, title, body, "pre-" + doc.id) === "invalid") deleteDoc("pushTokens", t.id);
+      });
+      sent[doc.id + "|" + d.start] = now;
+      changed = true;
+      console.log("1시간 전 알림: " + d.title);
+    });
+  }
+  if (changed) props.setProperty("PRE_SENT", JSON.stringify(sent));
 }
 
 // 테스트: 관리자(스크립트 소유자) 기기로 알림 한 번 보내기

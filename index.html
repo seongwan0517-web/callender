@@ -420,9 +420,14 @@
                     <div>
                         <span class="label">방문 주소</span>
                         <div class="flex gap-2">
-                            <input type="text" id="ev-address" maxlength="200" class="net-input" placeholder="주소 검색을 누르거나 직접 입력" autocomplete="off">
+                            <input type="text" id="ev-address" maxlength="200" class="net-input" placeholder="도로명·지번 주소 입력 후 검색" autocomplete="off"
+                                   oninput="formCoords = null; renderFormMap()" onkeydown="if(event.key==='Enter'){event.preventDefault();openAddressSearch()}">
                             <button type="button" onclick="openAddressSearch()" class="btn-ghost px-3 shrink-0 text-sm"><i class="fa-solid fa-magnifying-glass mr-1"></i>검색</button>
                         </div>
+                        <!-- 네이버 지도 주소 검색 결과 -->
+                        <div id="addr-results" class="hidden mt-2 rounded-xl overflow-hidden divide-y divide-[#2e2e33]" style="background: var(--surface-2); border: 1px solid var(--line)"></div>
+                        <!-- 고른 위치 미리보기 (네이버 지도) -->
+                        <div id="form-map" class="hidden mt-2 w-full h-40 rounded-xl overflow-hidden"></div>
                         <div id="postcode-box" class="hidden mt-2">
                             <div class="flex items-center justify-between mb-1.5">
                                 <span class="text-xs text-gray-400">도로명·건물명·지번으로 검색해서 고르세요</span>
@@ -499,7 +504,7 @@
                         <p id="detail-address" class="font-semibold flex-1 break-words"></p>
                     </div>
                     <div id="detail-map" class="hidden w-full h-44 rounded-xl overflow-hidden"></div>
-                    <button onclick="openNaverMap(currentDetail && currentDetail.address)" class="w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2" style="background:#03c75a">
+                    <button onclick="openNaverMap(currentDetail)" class="w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2" style="background:#03c75a">
                         <span class="font-black">N</span> 네이버 지도로 보기
                     </button>
                 </div>
@@ -701,6 +706,8 @@
                     adFee: Number(d.adFee) || 0,
                     myCost: Number(d.myCost) || 0,
                     address: d.address || '',
+                    lat: Number(d.lat) || 0,
+                    lng: Number(d.lng) || 0,
                     done: !!d.done,
                     doneAt: d.doneAt || '',
                     canEdit: isAdmin() || d.authorEmail === currentUser.email
@@ -748,7 +755,7 @@
 
         // 폼 값 → 저장할 문서. 종일 일정은 '포함' 종료일을 받아 다음 날(exclusive)로 바꿔 저장
         function buildEventData({ title, start, end, allDay, category, platform, memo,
-                                  deadline = '', link = '', contentTypes = [], productValue = 0, adFee = 0, myCost = 0, address = '' }) {
+                                  deadline = '', link = '', contentTypes = [], productValue = 0, adFee = 0, myCost = 0, address = '', lat = 0, lng = 0 }) {
             const blog = category === BLOG;
             let startDate, endDate, startStr, endStr;
             if (allDay) {
@@ -773,6 +780,8 @@
                 adFee: blog ? adFee : 0,
                 myCost: blog ? myCost : 0,
                 address: blog ? address : '',
+                lat: blog && address ? lat : 0,
+                lng: blog && address ? lng : 0,
                 start: startStr, end: endStr,
                 startTs: ts(startDate), endTs: ts(endDate),
                 updatedAt: serverNow()
@@ -925,10 +934,10 @@
                 if (perm !== 'granted') { pushMsg = '알림이 허용되지 않았어요. 휴대폰 설정에서 이 앱의 알림을 허용해 주세요.'; return renderPushUI(); }
                 const reg = await registerPushToken();
                 reg.showNotification('알림이 켜졌어요', {
-                    body: '매일 아침 9시에 오늘 일정과 제출 마감을 알려드릴게요.',
+                    body: '매일 아침 9시 + 시간이 정해진 협찬은 1시간 전에 알려드릴게요.',
                     icon: '/icons/icon-192.png', badge: '/icons/icon-192.png'
                 });
-                pushMsg = '알림이 켜졌어요. 매일 아침 9시에 알려드려요.';
+                pushMsg = '알림이 켜졌어요. 매일 아침 9시, 협찬 약속 1시간 전에 알려드려요.';
             } catch (err) {
                 console.error(err);
                 pushMsg = '알림 켜기 실패: ' + friendlyError(err);
@@ -955,7 +964,7 @@
         function renderPushUI() {
             const st = pushState();
             const text = {
-                on: ['알림 켜짐', '매일 아침 9시에 오늘 일정과 마감을 알려드려요'],
+                on: ['알림 켜짐', '아침 9시 + 협찬 약속 1시간 전에 알려드려요'],
                 off: ['알림 꺼짐', '켜면 체험일·제출 마감을 휴대폰으로 알려드려요'],
                 blocked: ['알림 차단됨', '휴대폰/브라우저 설정에서 이 사이트 알림을 허용해 주세요'],
                 'need-install': ['홈 화면 앱에서 사용 가능', '공유 버튼 → "홈 화면에 추가" 후 그 앱에서 켜 주세요'],
@@ -1093,7 +1102,77 @@
             });
         }
 
+        // 주소 검색: 네이버 지도 키가 있으면 네이버 지오코딩, 없으면 카카오 우편번호 검색(임시)
         async function openAddressSearch() {
+            if (NAVER_MAP_CLIENT_ID) return naverAddressSearch();
+            return kakaoPostcodeSearch();
+        }
+
+        // 네이버 지도 지오코딩으로 주소 검색 → 결과 목록에서 고르기
+        async function naverAddressSearch() {
+            const q = document.getElementById('ev-address').value.trim();
+            const box = document.getElementById('addr-results');
+            if (!q) { box.innerHTML = '<p class="px-4 py-3 text-sm text-gray-400">주소를 먼저 입력해 주세요. (예: 판교역로 166, 역삼동 737)</p>'; box.classList.remove('hidden'); return; }
+            box.innerHTML = '<p class="px-4 py-3 text-sm text-gray-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> 네이버 지도에서 찾는 중...</p>';
+            box.classList.remove('hidden');
+            try {
+                await loadNaverMaps();
+            } catch (err) {
+                box.innerHTML = '<p class="px-4 py-3 text-sm text-red-400">네이버 지도를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</p>';
+                return;
+            }
+            naver.maps.Service.geocode({ query: q }, (status, res) => {
+                const list = status === naver.maps.Service.Status.OK ? (res.v2.addresses || []) : [];
+                if (!list.length) {
+                    box.innerHTML = '<p class="px-4 py-3 text-sm text-gray-400">검색 결과가 없어요. 도로명(예: 판교역로 166)이나 지번(예: 백현동 532) 주소로 입력해 보세요.<br><span class="text-gray-500">가게 이름만으로는 찾을 수 없어요 — 메모에 적어 두세요.</span></p>';
+                    return;
+                }
+                addrCandidates = list.slice(0, 8).map(a => ({
+                    address: a.roadAddress || a.jibunAddress,
+                    sub: a.roadAddress && a.jibunAddress ? a.jibunAddress : '',
+                    lat: Number(a.y), lng: Number(a.x)
+                }));
+                box.innerHTML = addrCandidates.map((c, i) => `
+                    <button type="button" onclick="pickAddress(${i})" class="w-full text-left px-4 py-3 hover:bg-white/5">
+                        <p class="text-sm font-semibold"><i class="fa-solid fa-location-dot text-[#03c75a] mr-1.5"></i>${escapeHtml(c.address)}</p>
+                        ${c.sub ? `<p class="text-xs text-gray-400 mt-0.5 ml-5">지번 ${escapeHtml(c.sub)}</p>` : ''}
+                    </button>`).join('');
+            });
+        }
+
+        let addrCandidates = [];
+        let formCoords = null;      // { lat, lng } — 네이버 지도에서 고른 위치
+
+        function pickAddress(i) {
+            const c = addrCandidates[i];
+            if (!c) return;
+            const input = document.getElementById('ev-address');
+            input.value = c.address;
+            formCoords = { lat: c.lat, lng: c.lng };
+            document.getElementById('addr-results').classList.add('hidden');
+            renderFormMap();
+        }
+
+        // 입력폼 안의 미리보기 지도
+        async function renderFormMap() {
+            const el = document.getElementById('form-map');
+            if (!formCoords || !NAVER_MAP_CLIENT_ID) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+            try {
+                await loadNaverMaps();
+                el.classList.remove('hidden');
+                el.innerHTML = '';
+                drawNaverMap(el, formCoords.lat, formCoords.lng);
+            } catch (err) { el.classList.add('hidden'); }
+        }
+
+        function drawNaverMap(el, lat, lng) {
+            const pos = new naver.maps.LatLng(lat, lng);
+            const map = new naver.maps.Map(el, { center: pos, zoom: 16, zoomControl: false, mapDataControl: false, scaleControl: false, logoControlOptions: { position: naver.maps.Position.BOTTOM_LEFT } });
+            new naver.maps.Marker({ position: pos, map });
+            return map;
+        }
+
+        async function kakaoPostcodeSearch() {
             const wrap = document.getElementById('postcode-wrap');
             try {
                 await loadScriptOnce('https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js');
@@ -1125,13 +1204,20 @@
         const NAVER_MAP_CLIENT_ID = '';
 
         // 휴대폰: 네이버 지도 앱을 바로 열고, 앱이 없으면 웹 지도로 / PC: 웹 지도를 새 탭으로
-        function openNaverMap(address) {
+        // ev: 일정(주소·좌표) 또는 주소 문자열. 좌표가 있으면 그 위치에 핀을 꽂아서 연다
+        function openNaverMap(ev) {
+            const address = typeof ev === 'string' ? ev : (ev && ev.address);
             if (!address) return;
+            const lat = ev && ev.lat, lng = ev && ev.lng;
+            const name = encodeURIComponent((ev && ev.title) || address);
             const q = encodeURIComponent(address.replace(/\s*\(.*\)\s*$/, ''));
             const web = `https://map.naver.com/p/search/${q}`;
             const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || isIOS();
             if (!mobile) return window.open(web, '_blank', 'noopener');
-            const app = `nmap://search?query=${q}&appname=${encodeURIComponent(location.hostname)}`;
+            const appname = encodeURIComponent(location.hostname);
+            const app = lat && lng
+                ? `nmap://place?lat=${lat}&lng=${lng}&name=${name}&appname=${appname}`
+                : `nmap://search?query=${q}&appname=${appname}`;
             const started = Date.now();
             const timer = setTimeout(() => {
                 if (document.visibilityState === 'visible' && Date.now() - started < 3000) location.href = web;
@@ -1147,20 +1233,23 @@
             return naverMapsReady;
         }
 
-        async function renderDetailMap(address) {
+        // 상세 화면 지도: 저장된 좌표가 있으면 그대로, 없으면(예전 일정) 주소로 위치를 찾아서 표시
+        async function renderDetailMap(ev) {
             const el = document.getElementById('detail-map');
             el.classList.add('hidden');
             el.innerHTML = '';
-            if (!address || !NAVER_MAP_CLIENT_ID) return;
+            if (!ev || !ev.address || !NAVER_MAP_CLIENT_ID) return;
             try {
                 await loadNaverMaps();
-                naver.maps.Service.geocode({ query: address.replace(/\s*\(.*\)\s*$/, '') }, (status, res) => {
-                    const a = status === naver.maps.Service.Status.OK && res.v2.addresses[0];
-                    if (!a) return;
+                if (ev.lat && ev.lng) {
                     el.classList.remove('hidden');
-                    const pos = new naver.maps.LatLng(Number(a.y), Number(a.x));
-                    const map = new naver.maps.Map(el, { center: pos, zoom: 16, zoomControl: false, mapDataControl: false });
-                    new naver.maps.Marker({ position: pos, map });
+                    return drawNaverMap(el, ev.lat, ev.lng);
+                }
+                naver.maps.Service.geocode({ query: ev.address.replace(/\s*\(.*\)\s*$/, '') }, (status, res) => {
+                    const a = status === naver.maps.Service.Status.OK && res.v2.addresses[0];
+                    if (!a || currentDetail !== ev) return;
+                    el.classList.remove('hidden');
+                    drawNaverMap(el, Number(a.y), Number(a.x));
                 });
             } catch (err) { console.error('네이버 지도 로드 실패', err); }
         }
@@ -1491,6 +1580,8 @@
                 adFee: props.adFee || 0,
                 myCost: props.myCost || 0,
                 address: props.address || '',
+                lat: props.lat || 0,
+                lng: props.lng || 0,
                 done: !!props.done,
                 doneAt: props.doneAt || '',
                 canEdit: !!props.canEdit
@@ -1978,6 +2069,9 @@
             document.getElementById('ev-link').value = '';
             ['ev-product', 'ev-adfee', 'ev-mycost'].forEach(id => { document.getElementById(id).value = ''; });
             document.getElementById('ev-address').value = '';
+            formCoords = null;
+            document.getElementById('addr-results').classList.add('hidden');
+            document.getElementById('form-map').classList.add('hidden');
             document.getElementById('ev-visit-date').value = '';
             closeAddressSearch();
             formPlatform = '';
@@ -2032,6 +2126,8 @@
                 document.getElementById('ev-adfee').value = ev.adFee ? fmtMoney(ev.adFee) : '';
                 document.getElementById('ev-mycost').value = ev.myCost ? fmtMoney(ev.myCost) : '';
                 document.getElementById('ev-address').value = ev.address || '';
+                formCoords = ev.lat && ev.lng ? { lat: ev.lat, lng: ev.lng } : null;
+                setTimeout(renderFormMap, 300);
                 document.getElementById('ev-visit-date').value = toDateStr(ev.start);
                 if (ev.allDay) {
                     visitTime = null;
@@ -2090,7 +2186,7 @@
             // 주소 + 네이버 지도
             document.getElementById('detail-address-row').classList.toggle('hidden', !(blog && ev.address));
             document.getElementById('detail-address').textContent = ev.address || '';
-            renderDetailMap(blog ? ev.address : '');
+            renderDetailMap(blog ? ev : null);
 
             // 완료 버튼 (협찬 + 수정 권한)
             document.getElementById('detail-done-wrap').classList.toggle('hidden', !(blog && ev.canEdit));
@@ -2242,7 +2338,9 @@
                     productValue: parseMoney(document.getElementById('ev-product').value),
                     adFee: parseMoney(document.getElementById('ev-adfee').value),
                     myCost: parseMoney(document.getElementById('ev-mycost').value),
-                    address: document.getElementById('ev-address').value.trim().slice(0, 200)
+                    address: document.getElementById('ev-address').value.trim().slice(0, 200),
+                    lat: formCoords ? formCoords.lat : 0,
+                    lng: formCoords ? formCoords.lng : 0
                 };
                 if (blogFields.deadline && blogFields.deadline < startVal.slice(0, 10)) return showError('제출 마감일이 체험일보다 빠릅니다.');
             }
