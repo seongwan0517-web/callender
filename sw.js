@@ -1,8 +1,17 @@
 // Time Schedule 서비스 워커 — 앱 설치(홈 화면 추가)용
-// 항상 최신 화면을 받아오고(network-first), 인터넷이 끊겼을 때만 마지막으로 받은 화면을 보여준다.
+// - 화면(index.html): 최신을 받아오되, 3초 안에 안 오거나 인터넷이 끊기면 마지막으로 받은 화면을 보여준다.
+// - 디자인·아이콘 등 같은 사이트 파일: 저장본을 바로 쓰고 뒤에서 최신으로 갱신.
+// - 버전이 박힌 라이브러리·글꼴(CDN): 한 번 받으면 휴대폰에 저장해 두고 다시 받지 않는다.
 // 로그인·데이터(Firebase) 요청은 건드리지 않는다.
-const CACHE = 'time-schedule-v2';
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'time-schedule-v3';
+const LIBS = 'time-schedule-libs-v1';
+const SHELL = ['/', '/index.html', '/app.css?v=1', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+
+// 주소에 버전이 들어 있어 내용이 바뀌지 않는 외부 파일들
+const LIB_HOSTS = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com'];
+const isLib = url =>
+  LIB_HOSTS.includes(url.hostname) ||
+  (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/'));
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -11,7 +20,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== LIBS).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -47,21 +56,54 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
+const storable = res => res && (res.ok || res.type === 'opaque');
+
+function saveTo(cacheName, req, res) {
+  if (storable(res)) {
+    const copy = res.clone();
+    caches.open(cacheName).then(c => c.put(req, copy)).catch(() => {});
+  }
+  return res;
+}
+
+// 라이브러리·글꼴: 저장본 우선
+function cacheFirst(req) {
+  return caches.open(LIBS).then(c => c.match(req)).then(hit =>
+    hit || fetch(req).then(res => saveTo(LIBS, req, res))
+  );
+}
+
+// 화면: 최신 우선, 3초 넘게 걸리거나 끊기면 저장본
+function networkFirst(req) {
+  const network = fetch(req).then(res => saveTo(CACHE, req, res));
+  const fallback = () => caches.match(req, { ignoreSearch: true }).then(hit => hit || caches.match('/index.html'));
+  const timeout = new Promise(resolve => setTimeout(resolve, 3000)).then(fallback);
+  return Promise.race([
+    network.catch(fallback),
+    timeout.then(hit => hit || network)
+  ]);
+}
+
+// 디자인·아이콘: 저장본을 바로 쓰고 뒤에서 갱신
+function staleWhileRevalidate(req) {
+  return caches.match(req).then(hit => {
+    const network = fetch(req).then(res => saveTo(CACHE, req, res));
+    if (hit) { network.catch(() => {}); return hit; }
+    return network;
+  });
+}
+
 self.addEventListener('fetch', event => {
   const req = event.request;
+  if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // 같은 사이트의 GET 요청만 처리 (Firebase 로그인 처리 경로 /__/ 는 제외)
-  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/__/')) return;
 
-  event.respondWith(
-    fetch(req)
-      .then(res => {
-        if (res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(req, copy));
-        }
-        return res;
-      })
-      .catch(() => caches.match(req).then(hit => hit || caches.match('/index.html')))
-  );
+  if (isLib(url)) return event.respondWith(cacheFirst(req));
+  // 같은 사이트만 처리 (Firebase 로그인 처리 경로 /__/ 는 제외)
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/__/')) return;
+
+  if (req.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    return event.respondWith(networkFirst(req));
+  }
+  event.respondWith(staleWhileRevalidate(req));
 });

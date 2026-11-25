@@ -15,7 +15,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Time Schedule">
 
-    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -24,17 +23,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['"Pretendard Variable"', 'Pretendard', 'sans-serif'] },
-                    colors: { netRed: '#e50914' }
-                }
-            }
-        }
-    </script>
 
     <style>
         /* ===== 디자인 토큰 ===== */
@@ -53,6 +41,8 @@
             --tabbar-h: 64px;
         }
         * { -webkit-tap-highlight-color: transparent; }
+        @keyframes bootPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.92); opacity: .75; } }
+        .boot-pulse { animation: bootPulse 1.2s ease-in-out infinite; }
         html, body { background: var(--bg); color: var(--text); }
         /* 아이폰 홈 화면 앱: 상단 상태바(시계·배터리) 아래로 내용 내리기 */
         #main-app { padding-top: env(safe-area-inset-top); }
@@ -334,11 +324,20 @@
             .sheet-handle { display: block; width: 40px; height: 5px; border-radius: 3px; background: #4a4a52; margin: 10px auto 0; }
         }
     </style>
+    <!-- 디자인: Tailwind 를 미리 빌드한 파일 (예전 CDN 처럼 위 스타일 뒤에 둠 / 다시 만들기: build/README.md) -->
+    <link rel="stylesheet" href="/app.css?v=1">
 </head>
 <body data-tab="home" data-side="home">
 
-    <!-- 1. 로그인 화면 -->
-    <div id="login-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-500 px-6 text-center" style="background: var(--bg)">
+    <!-- 0. 시작 화면 (로그인 상태 확인 중) -->
+    <div id="boot-screen" class="fixed inset-0 z-[60] flex flex-col items-center justify-center transition-opacity duration-300" style="background: var(--bg)">
+        <div class="w-16 h-16 rounded-2xl bg-netRed flex items-center justify-center shadow-lg shadow-red-900/40 boot-pulse">
+            <i class="fa-regular fa-calendar-check text-3xl text-white"></i>
+        </div>
+    </div>
+
+    <!-- 1. 로그인 화면 (로그인 안 된 경우에만 표시) -->
+    <div id="login-screen" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-500 px-6 text-center" style="background: var(--bg)">
         <div class="w-16 h-16 rounded-2xl bg-netRed flex items-center justify-center mb-6 shadow-lg shadow-red-900/40">
             <i class="fa-regular fa-calendar-check text-3xl text-white"></i>
         </div>
@@ -751,6 +750,18 @@
         firebase.initializeApp(FIREBASE_CONFIG);
         const auth = firebase.auth();
         const db = firebase.firestore();
+        // 데이터를 휴대폰에 저장 → 다음에 열 때 마지막에 본 내용을 바로 보여 주고 뒤에서 최신으로 갱신
+        db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+        let serverSynced = false;   // 서버와 처음 동기화되기 전에는 저장된 데이터를 먼저 사용
+        async function fastGet(q) {
+            if (!serverSynced) {
+                try {
+                    const c = await q.get({ source: 'cache' });
+                    if (!c.empty) return c;
+                } catch (e) {}
+            }
+            return q.get();
+        }
 
         // 웹 푸시 공개 키 (Firebase 콘솔 → 클라우드 메시징 → 웹 푸시 인증서). 공개되어도 괜찮은 값
         const VAPID_KEY = 'BHqFX4QGr9y53J_n_1C3KeOnuZbrGU6DmNJGZafzJudC6ksPRhoaimxILKzENnmkjKghRSDS2UVsRDqWkw7RTMs';
@@ -846,9 +857,10 @@
         }
 
         async function loadUsers() {
-            const snap = await db.collection('users').get();
+            const snap = await fastGet(db.collection('users'));
             userColors = {};
             snap.forEach(d => { userColors[d.id] = d.data(); });
+            try { localStorage.setItem('nc_users', JSON.stringify(userColors)); } catch (e) {}
             legend = Object.values(userColors).map(u => ({ name: u.name, color: u.color }));
         }
 
@@ -926,7 +938,7 @@
         async function fetchEvents(start, end, withDeadlines = false) {
             // 마감일은 체험일보다 늦으므로, 조금 앞선 일정까지 가져와서 마감일이 기간 안인지 본다
             const from = withDeadlines ? addDays(start, -120) : start;
-            const snap = await db.collection('events').where('endTs', '>', ts(from)).orderBy('endTs').get();
+            const snap = await fastGet(db.collection('events').where('endTs', '>', ts(from)).orderBy('endTs'));
             const events = [];
             const s0 = toDateStr(start), e0 = toDateStr(end);
             snap.forEach(doc => {
@@ -1003,9 +1015,18 @@
         function watchChanges() {
             let first = true;
             const since = new Date(); since.setDate(since.getDate() - 400);
-            db.collection('events').where('endTs', '>', ts(since)).onSnapshot(snap => {
+            db.collection('events').where('endTs', '>', ts(since)).onSnapshot({ includeMetadataChanges: true }, snap => {
+                // 서버 데이터가 처음 도착하면 저장본 대신 최신 내용으로 다시 그림
+                if (!serverSynced && !snap.metadata.fromCache) {
+                    serverSynced = true;
+                    first = false;
+                    clearTimeout(changeTimer);
+                    changeTimer = setTimeout(refreshAll, 50);
+                    return;
+                }
                 if (first) { first = false; return; }
-                if (snap.metadata.hasPendingWrites) return;
+                if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
+                if (!snap.docChanges().length) return;   // 내용 변화 없이 상태만 바뀐 경우
                 clearTimeout(changeTimer);
                 changeTimer = setTimeout(refreshAll, 400);
             }, err => console.error(err));
@@ -1183,7 +1204,7 @@
 
         async function loadOptions() {
             try {
-                const snap = await optionsRef().get();
+                const snap = await fastGet(optionsRef());
                 const d = snap.exists ? snap.data() : {};
                 customOptions = {
                     platforms: Array.isArray(d.platforms) ? d.platforms : [],
@@ -1494,23 +1515,50 @@
 
         function logout(message) {
             if (message) sessionStorage.setItem('nc_login_msg', message);
-            auth.signOut().finally(() => location.reload());
+            try { localStorage.removeItem('nc_users'); } catch (e) {}
+            // 로그아웃하면 휴대폰에 저장해 둔 일정 데이터도 지움
+            auth.signOut()
+                .then(() => db.terminate())
+                .then(() => db.clearPersistence())
+                .catch(() => {})
+                .finally(() => location.reload());
+        }
+
+        function hideBoot() {
+            const boot = document.getElementById('boot-screen');
+            if (!boot || boot.classList.contains('hidden')) return;
+            boot.classList.add('opacity-0');
+            setTimeout(() => boot.classList.add('hidden'), 300);
+        }
+
+        function showLogin() {
+            document.getElementById('login-screen').classList.remove('hidden');
+            hideBoot();
         }
 
         auth.getRedirectResult().catch(err => showLoginError('로그인 실패: ' + err.message));
 
-        auth.onAuthStateChanged(async user => {
-            if (!user || appStarted) return;
+        auth.onAuthStateChanged(user => {
+            if (!user) { if (!appStarted) showLogin(); return; }
+            if (appStarted) return;
             currentUser = { uid: user.uid, email: (user.email || '').toLowerCase(), name: user.displayName || user.email, picture: user.photoURL };
+            // 지난번 색 정보로 바로 그리고, 멤버 확인·색 갱신은 뒤에서
             try {
-                await ensureUser();   // 멤버가 아니면 보안 규칙이 여기서 막음
-            } catch (err) {
-                return logout(err.code === 'permission-denied'
-                    ? `${currentUser.email} 계정은 등록된 멤버가 아닙니다. 관리자에게 등록을 요청하세요.`
-                    : '로그인 처리 실패: ' + friendlyError(err));
-            }
+                userColors = JSON.parse(localStorage.getItem('nc_users') || '{}') || {};
+                legend = Object.values(userColors).map(u => ({ name: u.name, color: u.color }));
+            } catch (e) {}
             enterApp();
             watchChanges();
+            ensureUser().then(() => {
+                renderLegend();
+                if (calendar) calendar.refetchEvents();
+            }).catch(err => {
+                // 멤버가 아니면 보안 규칙이 여기서 막음
+                if (err.code === 'permission-denied') {
+                    return logout(`${currentUser.email} 계정은 등록된 멤버가 아닙니다. 관리자에게 등록을 요청하세요.`);
+                }
+                console.error(err);
+            });
         });
 
         function avatarHtml(size) {
@@ -1522,8 +1570,11 @@
         function enterApp() {
             appStarted = true;
             const loginScreen = document.getElementById('login-screen');
-            loginScreen.classList.add('opacity-0');
-            setTimeout(() => loginScreen.classList.add('hidden'), 500);
+            if (!loginScreen.classList.contains('hidden')) {
+                loginScreen.classList.add('opacity-0');
+                setTimeout(() => loginScreen.classList.add('hidden'), 500);
+            }
+            hideBoot();
 
             const main = document.getElementById('main-app');
             main.classList.remove('hidden');
@@ -1932,7 +1983,7 @@
 
         async function loadBlogList() {
             try {
-                const snap = await db.collection('events').where('category', '==', BLOG).get();
+                const snap = await fastGet(db.collection('events').where('category', '==', BLOG));
                 blogEvents = snap.docs.map(d => normalize(docToEvent(d)));
                 renderBlogList();
             } catch (err) {
