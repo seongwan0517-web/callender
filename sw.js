@@ -3,7 +3,7 @@
 // - 디자인·아이콘 등 같은 사이트 파일: 저장본을 바로 쓰고 뒤에서 최신으로 갱신.
 // - 버전이 박힌 라이브러리·글꼴(CDN): 한 번 받으면 휴대폰에 저장해 두고 다시 받지 않는다.
 // 로그인·데이터(Firebase) 요청은 건드리지 않는다.
-const CACHE = 'time-schedule-v4';
+const CACHE = 'time-schedule-v6';
 const LIBS = 'time-schedule-libs-v1';
 const SHELL = ['/', '/index.html', '/app.css?v=2', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
@@ -75,7 +75,7 @@ function cacheFirst(req) {
 
 // 화면: 최신 우선, 3초 넘게 걸리거나 끊기면 저장본
 function networkFirst(req) {
-  const network = fetch(req).then(res => saveTo(CACHE, req, res));
+  const network = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(res => saveTo(CACHE, req, res));
   const fallback = () => caches.match(req, { ignoreSearch: true }).then(hit => hit || caches.match('/index.html'));
   const timeout = new Promise(resolve => setTimeout(resolve, 3000)).then(fallback);
   return Promise.race([

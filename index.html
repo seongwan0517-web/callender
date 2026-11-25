@@ -3310,7 +3310,20 @@
 
         // ===== 앱 설치(PWA) =====
         if ('serviceWorker' in navigator && location.protocol === 'https:') {
-            navigator.serviceWorker.register('/sw.js').catch(err => console.error('서비스 워커 등록 실패', err));
+            // 새 버전이 배포돼 서비스 워커가 바뀌면 한 번만 자동 새로고침 (처음 설치 때는 제외)
+            const hadController = !!navigator.serviceWorker.controller;
+            let reloaded = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!hadController || reloaded) return;
+                reloaded = true;
+                location.reload();
+            });
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                // 홈 화면 앱을 다시 열 때(백그라운드 → 앞으로)도 새 버전 확인
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') reg.update().catch(() => {});
+                });
+            }).catch(err => console.error('서비스 워커 등록 실패', err));
         }
     </script>
 </body>
