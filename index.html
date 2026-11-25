@@ -15,6 +15,33 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Time Schedule">
 
+    <!-- 화면 모드 (다크 / 라이트 / 휴대폰 설정 따라가기). 화면이 그려지기 전에 먼저 적용해서 깜빡임 방지 -->
+    <script>
+        function getThemePref() {
+            try { return localStorage.getItem('nc_theme') || 'dark'; } catch (e) { return 'dark'; }
+        }
+        function resolveTheme(pref) {
+            if (pref === 'auto') return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+            return pref === 'light' ? 'light' : 'dark';
+        }
+        function applyTheme(pref) {
+            const t = resolveTheme(pref);
+            document.documentElement.dataset.theme = t;
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', t === 'light' ? '#f4f4f5' : '#0f0f11');
+            return t;
+        }
+        (function () {
+            const t = applyTheme(getThemePref());
+            // 아이폰 홈 화면 앱 상단 상태바 글자색 (앱을 열 때만 반영됨)
+            const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+            if (sb) sb.setAttribute('content', t === 'light' ? 'default' : 'black-translucent');
+            window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+                if (getThemePref() === 'auto') { applyTheme('auto'); if (window.onThemeChanged) window.onThemeChanged(); }
+            });
+        })();
+    </script>
+
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -144,8 +171,8 @@
         .fc-theme-standard .fc-scrollgrid { border-radius: 14px; overflow: hidden; }
         .fc .fc-col-header-cell { background: var(--surface); }
         .fc .fc-col-header-cell-cushion { font-weight: 700; padding: 9px 4px; color: var(--muted); font-size: 13px; }
-        .fc .fc-col-header-cell.fc-day-sun .fc-col-header-cell-cushion, .fc .fc-day-sun .fc-daygrid-day-number { color: #f87171; }
-        .fc .fc-col-header-cell.fc-day-sat .fc-col-header-cell-cushion, .fc .fc-day-sat .fc-daygrid-day-number { color: #60a5fa; }
+        .fc .fc-col-header-cell.fc-day-sun .fc-col-header-cell-cushion, .fc .fc-day-sun .fc-daygrid-day-number { color: var(--c-red); }
+        .fc .fc-col-header-cell.fc-day-sat .fc-col-header-cell-cushion, .fc .fc-day-sat .fc-daygrid-day-number { color: var(--c-blue); }
         .fc .fc-daygrid-day { cursor: pointer; }
         .fc .fc-daygrid-day-top { flex-direction: row; justify-content: flex-start; }
         .fc .fc-daygrid-day-number { padding: 7px 9px; font-weight: 700; color: var(--text); font-size: 14px; }
@@ -157,7 +184,7 @@
         .ev-card.is-done { opacity: .6; }
         .ev-card.is-done .ev-title { text-decoration: line-through; text-decoration-color: rgba(255,255,255,.4); }
         .done-btn { width: 40px; height: 40px; border-radius: 999px; border: 2px solid #52525b; color: transparent; display: flex; align-items: center; justify-content: center; flex: none; transition: all .15s; }
-        .done-btn:hover { border-color: #4ade80; color: #4ade80; }
+        .done-btn:hover { border-color: var(--c-green); color: var(--c-green); }
         .done-btn.on { background: #22c55e; border-color: #22c55e; color: #fff; }
         .fc .fc-daygrid-block-event { border-radius: 6px; padding: 2px 7px; }
         .fc .fc-daygrid-event { font-size: 13px; font-weight: 600; margin-top: 2px; }
@@ -197,7 +224,7 @@
         .kpi .k { font-size: 12px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 6px; }
         .kpi .v { font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -0.02em; }
         .kpi .s { font-size: 12px; color: var(--faint); margin-top: 2px; }
-        .pos { color: #4ade80; } .neg { color: #f87171; }
+        .pos { color: var(--c-green); } .neg { color: var(--c-red); }
         .bg-row { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 7px 0; }
         .bg-row + .bg-row { border-top: 1px solid var(--line); }
         .bg-row .n { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -322,10 +349,82 @@
                      padding-bottom: env(safe-area-inset-bottom); transform: translateY(30px); }
             .modal-overlay:not(.opacity-0) .sheet { transform: none; }
             .sheet-handle { display: block; width: 40px; height: 5px; border-radius: 3px; background: #4a4a52; margin: 10px auto 0; }
+            html[data-theme="light"] .sheet-handle { background: #d4d4d8; }
+            html[data-theme="light"] .tabbar { background: rgba(255, 255, 255, .96); }
         }
+
+        /* ===== 강조 색 (다크 기본값) ===== */
+        :root {
+            color-scheme: dark;
+            --c-green: #4ade80; --c-red: #f87171; --c-red-soft: #fca5a5; --c-yellow: #facc15;
+            --c-blue: #60a5fa; --c-purple-soft: #d6b4e6; --c-violet: #a78bfa;
+            --grid: #27272a; --sel: #ffffff; --axis: #52525b;
+        }
+        .text-strong { color: var(--text); }
+
+        /* ===== 라이트 모드 ===== */
+        html[data-theme="light"] {
+            color-scheme: light;
+            --bg: #f4f4f5;
+            --surface: #ffffff;
+            --surface-2: #f1f1f3;
+            --surface-3: #e5e5e9;
+            --line: #e2e2e6;
+            --text: #18181b;
+            --muted: #52525b;
+            --faint: #71717a;
+            --c-green: #15803d; --c-red: #dc2626; --c-red-soft: #dc2626; --c-yellow: #b45309;
+            --c-blue: #2563eb; --c-purple-soft: #7e3fa0; --c-violet: #7c3aed;
+            --grid: #e4e4e7; --sel: #18181b; --axis: #a1a1aa;
+        }
+        html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #d4d4d8; }
+        html[data-theme="light"] .btn-ghost { border-color: #d4d4d8; }
+        html[data-theme="light"] .btn-ghost:hover { border-color: #18181b; }
+        html[data-theme="light"] .chip.active { color: #fff; }
+        html[data-theme="light"] .seg button.active,
+        html[data-theme="light"] #ampm-am.active, html[data-theme="light"] #ampm-pm.active { background: #fff; box-shadow: inset 0 0 0 1px #d4d4d8, 0 1px 2px rgba(0,0,0,.06); }
+        html[data-theme="light"] .seg button.active[data-v="블로그 협찬"] { background: rgba(155, 89, 182, .15); box-shadow: inset 0 0 0 1px var(--blog); }
+        html[data-theme="light"] .opt.on { color: #6b2e8a; }
+        html[data-theme="light"] .modal-overlay { background-color: rgba(0, 0, 0, .35); }
+        html[data-theme="light"] .ev-card.is-done .ev-title { text-decoration-color: rgba(0,0,0,.35); }
+        html[data-theme="light"] .done-btn { border-color: #a1a1aa; }
+        html[data-theme="light"] .fc { --fc-button-text-color: var(--text); --fc-today-bg-color: rgba(229, 9, 20, .06); }
+        html[data-theme="light"] .fc .fc-button-active { color: #fff; }
+        html[data-theme="light"] .fc .fc-daygrid-dot-event:hover { background: rgba(0, 0, 0, .04); }
+        html[data-theme="light"] .trend .col.sel .bars { background: rgba(0,0,0,.04); }
+        html[data-theme="light"] .ticker { background: linear-gradient(135deg, #ffffff, #f7f7f8); }
+        html[data-theme="light"] .ticker-cells > div { background: rgba(0,0,0,.025); }
+        html[data-theme="light"] .readout { background: #fafafa; }
+        html[data-theme="light"] .chart .ax.sel { fill: #18181b; }
+        html[data-theme="light"] .hm-cell.hm-none { background: #ececef; }
+        html[data-theme="light"] .hm-cell.sel { outline-color: #18181b; }
+        html[data-theme="light"] .st-r + .st-r { border-top-color: #ececef; }
+        html[data-theme="light"] .bill-input { background: #fff !important; }
+        /* Tailwind 회색 글자·배경을 밝은 화면에 맞게 */
+        html[data-theme="light"] .text-gray-200, html[data-theme="light"] .text-gray-300 { color: #3f3f46; }
+        html[data-theme="light"] .text-gray-400 { color: #52525b; }
+        html[data-theme="light"] .text-gray-500 { color: #71717a; }
+        html[data-theme="light"] .text-green-400 { color: #15803d; }
+        html[data-theme="light"] .text-red-400 { color: #dc2626; }
+        html[data-theme="light"] .text-yellow-300 { color: #b45309; }
+        html[data-theme="light"] .text-blue-400, html[data-theme="light"] .text-sky-400 { color: #2563eb; }
+        html[data-theme="light"] .text-purple-300 { color: #7e3fa0; }
+        html[data-theme="light"] .hover\:text-white:hover { color: var(--text); }
+        html[data-theme="light"] .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, .04); }
+        html[data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, .07); }
+        html[data-theme="light"] .bg-\[\#3a3f4b\] { background-color: #d4d4d8; }
+        html[data-theme="light"] .bg-\[\#5b5b63\] { background-color: #c4c4cc; }
+        html[data-theme="light"] .divide-\[\#2e2e33\] > :not([hidden]) ~ :not([hidden]) { border-color: var(--line); }
+        html[data-theme="light"] #login-btn { box-shadow: 0 0 0 1px #e4e4e7, 0 4px 12px rgba(0,0,0,.08); }
+
+        /* 화면 모드 선택 */
+        .theme-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--surface); border-radius: 10px; padding: 3px; }
+        .theme-seg button { padding: 7px 0; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .theme-seg button.active { background: var(--surface-3); color: var(--text); }
+        html[data-theme="light"] .theme-seg button.active { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
     </style>
     <!-- 디자인: Tailwind 를 미리 빌드한 파일 (예전 CDN 처럼 위 스타일 뒤에 둠 / 다시 만들기: build/README.md) -->
-    <link rel="stylesheet" href="/app.css?v=1">
+    <link rel="stylesheet" href="/app.css?v=2">
 </head>
 <body data-tab="home" data-side="home">
 
@@ -1053,7 +1152,7 @@
                             <p class="text-xs text-gray-400 truncate">${escapeHtml(email)}</p>
                         </div>
                         ${admin
-                            ? '<span class="tag" style="background: rgba(229,9,20,.15); color:#f87171">관리자</span>'
+                            ? '<span class="tag" style="background: rgba(229,9,20,.15); color: var(--c-red)">관리자</span>'
                             : `<button onclick="removeMember('${escapeHtml(email)}')" class="text-xs font-bold text-gray-400 hover:text-red-400 px-2 py-1">삭제</button>`}
                     </div>`;
             }).join('');
@@ -1478,7 +1577,7 @@
                     - parseMoney(document.getElementById('ev-mycost').value);
             const el = document.getElementById('ev-profit');
             el.textContent = `${p < 0 ? '−' : ''}${fmtMoney(Math.abs(p))}원`;
-            el.style.color = p < 0 ? '#f87171' : (p > 0 ? '#4ade80' : '');
+            el.style.color = p < 0 ? 'var(--c-red)' : (p > 0 ? 'var(--c-green)' : '');
         }
 
         // ===== 로그인 / 세션 =====
@@ -1586,6 +1685,7 @@
                     <p class="font-bold text-sm truncate">${escapeHtml(currentUser.name)}</p>
                     <p class="text-xs text-gray-400 truncate mb-3">${escapeHtml(currentUser.email || '')}</p>
                     <div class="push-box rounded-lg p-3 mb-2" style="background: var(--surface-3)" onclick="event.stopPropagation()"></div>
+                    <div class="theme-box rounded-lg p-3 mb-2" style="background: var(--surface-3)" onclick="event.stopPropagation()"></div>
                     ${isAdmin() ? '<button onclick="openMembersModal()" class="w-full text-sm font-semibold text-left rounded-lg px-3 py-2.5 hover:bg-white/5 mb-1"><i class="fa-solid fa-user-group w-5 text-gray-400"></i> 멤버 관리</button>' : ''}
                     <button onclick="logout()" class="w-full text-sm font-semibold text-left rounded-lg px-3 py-2.5 hover:bg-white/5"><i class="fa-solid fa-arrow-right-from-bracket w-5 text-gray-400"></i> 로그아웃</button>
                 </div>`;
@@ -1672,16 +1772,45 @@
                     <div class="min-w-0">
                         <p class="text-lg font-extrabold truncate">${escapeHtml(currentUser.name)}</p>
                         <p class="text-sm text-gray-400 truncate">${escapeHtml(currentUser.email)}</p>
-                        ${isAdmin() ? '<span class="tag mt-1.5" style="background: rgba(229,9,20,.15); color:#f87171">관리자</span>' : ''}
+                        ${isAdmin() ? '<span class="tag mt-1.5" style="background: rgba(229,9,20,.15); color: var(--c-red)">관리자</span>' : ''}
                     </div>
                 </div>
                 <div class="push-box rounded-2xl p-4 mb-4" style="background: var(--surface-2)"></div>
+                <div class="theme-box rounded-2xl p-4 mb-4" style="background: var(--surface-2)"></div>
                 <div class="rounded-2xl overflow-hidden divide-y divide-[#2e2e33]" style="background: var(--surface-2)">
                     ${isAdmin() ? row('fa-solid fa-user-group', '멤버 관리', 'openMembersModal()') : ''}
                     ${row('fa-solid fa-arrow-right-from-bracket', '로그아웃', 'logout()')}
                 </div>
                 <p class="text-xs text-gray-500 text-center mt-6">일정은 5분마다 구글 캘린더에도 자동으로 복사됩니다</p>`;
+            renderThemeUI();
         }
+
+        // ===== 화면 모드 (다크 / 라이트 / 자동) =====
+        const THEME_OPTIONS = [
+            { v: 'dark', label: '다크', icon: 'fa-solid fa-moon' },
+            { v: 'light', label: '라이트', icon: 'fa-solid fa-sun' },
+            { v: 'auto', label: '자동', icon: 'fa-solid fa-circle-half-stroke' }
+        ];
+        function renderThemeUI() {
+            const pref = getThemePref();
+            const html = `
+                <p class="text-sm font-bold mb-2"><i class="fa-solid fa-palette text-gray-400 mr-1.5"></i>화면 모드</p>
+                <div class="theme-seg">
+                    ${THEME_OPTIONS.map(o => `<button type="button" class="${o.v === pref ? 'active' : ''}" onclick="setTheme('${o.v}')"><i class="${o.icon}"></i>${o.label}</button>`).join('')}
+                </div>
+                ${pref === 'auto' ? '<p class="text-xs text-gray-500 mt-2">휴대폰·PC 설정에 맞춰 자동으로 바뀌어요</p>' : ''}`;
+            document.querySelectorAll('.theme-box').forEach(el => { el.innerHTML = html; });
+        }
+        function setTheme(pref) {
+            try { localStorage.setItem('nc_theme', pref); } catch (e) {}
+            applyTheme(pref);
+            renderThemeUI();
+            onThemeChanged();
+        }
+        // 가계부 차트처럼 그림으로 그린 화면은 다시 그림
+        window.onThemeChanged = function () {
+            try { if (document.body.dataset.mode === 'budget') renderBudget(); } catch (e) {}
+        };
 
         // ===== 캘린더 =====
         const TOOLBAR_DESKTOP = { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' };
@@ -1845,7 +1974,7 @@
             const short = CATEGORY_SHORT[ev.category] || ev.category;
             const label = ev.category === BLOG && ev.platform ? `${short} · ${ev.platform}` : short;
             const style = ev.category === BLOG
-                ? 'background: rgba(155,89,182,.18); color: #d6b4e6'
+                ? 'background: rgba(155,89,182,.18); color: var(--c-purple-soft)'
                 : 'background: var(--surface-3); color: var(--muted)';
             return `<span class="tag" style="${style}">${escapeHtml(label)}</span>`;
         }
@@ -1861,9 +1990,9 @@
 
         function cardHtml(ev, cls, idx) {
             const dl = !!ev.deadlineView;
-            const deadlineTag = '<span class="tag" style="background: rgba(229,9,20,.18); color:#fca5a5"><i class="fa-solid fa-flag-checkered"></i> 제출 마감</span>';
+            const deadlineTag = '<span class="tag" style="background: rgba(229,9,20,.18); color: var(--c-red-soft)"><i class="fa-solid fa-flag-checkered"></i> 제출 마감</span>';
             const contents = (ev.contentTypes || []).map(c => `<span class="tag" style="background: var(--surface-3); color: var(--muted)">${escapeHtml(c)}</span>`).join('');
-            const doneTag = ev.done ? '<span class="tag" style="background: rgba(34,197,94,.18); color:#4ade80"><i class="fa-solid fa-check"></i> 완료</span>' : '';
+            const doneTag = ev.done ? '<span class="tag" style="background: rgba(34,197,94,.18); color: var(--c-green)"><i class="fa-solid fa-check"></i> 완료</span>' : '';
             return `
                 <div class="ev-card ${cls} ${ev.done ? 'is-done' : ''}" style="--c:${dl ? DEADLINE_COLOR : escapeHtml(ev.color)}" data-index="${idx}">
                     <div class="flex-1 min-w-0">
@@ -1871,7 +2000,7 @@
                         <div class="ev-title">${escapeHtml(ev.title)}</div>
                         <div class="ev-meta mt-1.5 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full inline-block" style="background:${escapeHtml(ev.color)}"></span>${escapeHtml(ev.author)}${!dl && ev.deadline ? ` <span class="text-gray-500">· 마감 ${Number(ev.deadline.slice(5, 7))}/${Number(ev.deadline.slice(8, 10))}</span>` : ''}</div>
                     </div>
-                    <div class="ev-time pt-0.5" style="${dl ? 'color:#fca5a5' : ''}">${dl ? '마감' : escapeHtml(timeText(ev))}</div>
+                    <div class="ev-time pt-0.5" style="${dl ? 'color: var(--c-red-soft)' : ''}">${dl ? '마감' : escapeHtml(timeText(ev))}</div>
                 </div>`;
         }
 
@@ -1940,9 +2069,9 @@
             const soon = allEvents.filter(ev => ev.category === BLOG && ev.deadline && !ev.done
                 && parseLocal(ev.deadline) >= d0 && parseLocal(ev.deadline) < addDays(d0, 8)).length;
             document.getElementById('hero-stats').innerHTML =
-                tile(count(d0, d1), '오늘 일정', '#fff') +
+                tile(count(d0, d1), '오늘 일정', 'var(--text)') +
                 tile(count(m0, m1, ev => ev.category === BLOG), '이번 달 협찬', BLOG_COLOR) +
-                tile(soon, '마감 7일 이내', soon ? '#f87171' : '');
+                tile(soon, '마감 7일 이내', soon ? 'var(--c-red)' : '');
         }
 
         function renderUpcoming() {
@@ -2006,7 +2135,7 @@
                     <div class="text-xs text-gray-400 font-semibold mt-0.5">${label}</div>
                 </div>`;
             document.getElementById('blog-stats').innerHTML =
-                tile(todo.length, '진행 중', BLOG_COLOR) + tile(overdue.length, '마감 지남', overdue.length ? '#f87171' : '') + tile(done.length, '완료', '#4ade80');
+                tile(todo.length, '진행 중', BLOG_COLOR) + tile(overdue.length, '마감 지남', overdue.length ? 'var(--c-red)' : '') + tile(done.length, '완료', 'var(--c-green)');
 
             const counts = { todo: todo.length, overdue: overdue.length, done: done.length, all: blogEvents.length };
             document.getElementById('blog-status-chips').innerHTML = BLOG_STATUS.map(s =>
@@ -2031,13 +2160,13 @@
             const md = d => `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`;
             const visit = `방문 ${md(ev.start)}${ev.allDay ? '' : ' ' + fmtTime(ev.start)}`;
             let status = '';
-            if (ev.done) status = `<span class="tag" style="background: rgba(34,197,94,.18); color:#4ade80"><i class="fa-solid fa-check"></i> 완료${ev.doneAt ? ' ' + Number(ev.doneAt.slice(5, 7)) + '/' + Number(ev.doneAt.slice(8, 10)) : ''}</span>`;
+            if (ev.done) status = `<span class="tag" style="background: rgba(34,197,94,.18); color: var(--c-green)"><i class="fa-solid fa-check"></i> 완료${ev.doneAt ? ' ' + Number(ev.doneAt.slice(5, 7)) + '/' + Number(ev.doneAt.slice(8, 10)) : ''}</span>`;
             else if (ev.deadline) {
                 const d = parseLocal(ev.deadline);
                 const diff = Math.round((d - startOfDay(new Date())) / 86400000);
                 const txt = diff < 0 ? `마감 ${-diff}일 지남` : diff === 0 ? '오늘 마감' : `마감 D-${diff}`;
                 const hot = diff <= 3;
-                status = `<span class="tag" style="${hot ? 'background: rgba(229,9,20,.2); color:#fca5a5' : 'background: var(--surface-3); color: var(--muted)'}"><i class="fa-solid fa-flag-checkered"></i> ${txt}</span>`;
+                status = `<span class="tag" style="${hot ? 'background: rgba(229,9,20,.2); color: var(--c-red-soft)' : 'background: var(--surface-3); color: var(--muted)'}"><i class="fa-solid fa-flag-checkered"></i> ${txt}</span>`;
             }
             const contents = (ev.contentTypes || []).map(c => `<span class="tag" style="background: var(--surface-3); color: var(--muted)">${escapeHtml(c)}</span>`).join('');
             return `
@@ -2186,7 +2315,7 @@
                         <div class="flex justify-between"><span class="text-gray-400">내 지출금액</span><span class="font-bold">−${fmtMoney(money.cost)}원</span></div>
                         <div class="flex justify-between pt-2 mt-1 border-t" style="border-color: var(--line)">
                             <span class="font-bold">순이익</span>
-                            <span class="font-extrabold text-base" style="color:${profit < 0 ? '#f87171' : '#4ade80'}">${profit < 0 ? '−' : ''}${fmtMoney(Math.abs(profit))}원</span>
+                            <span class="font-extrabold text-base" style="color:${profit < 0 ? 'var(--c-red)' : 'var(--c-green)'}">${profit < 0 ? '−' : ''}${fmtMoney(Math.abs(profit))}원</span>
                         </div>
                     </div>`)}
 
@@ -2201,7 +2330,7 @@
                     <div class="flex items-end gap-[2px] h-20">${bars}</div>
                     ${barLabels}
                     <p class="text-sm text-gray-400 mt-3">${busiestIdx >= 0
-                        ? `가장 바쁜 날: <span class="text-white font-bold">${fmtMD(addDays(s, busiestIdx))}</span> · ${maxC}개`
+                        ? `가장 바쁜 날: <span class="text-strong font-bold">${fmtMD(addDays(s, busiestIdx))}</span> · ${maxC}개`
                         : '가장 바쁜 날: -'}</p>`)}`;
         }
 
@@ -2453,7 +2582,7 @@
                     line('협찬 상품 가치', fmtMoney(ev.productValue) + '원') +
                     line('광고비', fmtMoney(ev.adFee) + '원') +
                     line('내 지출', '−' + fmtMoney(ev.myCost) + '원') +
-                    `<div class="flex justify-between pt-1.5 border-t" style="border-color: var(--line)"><span class="font-bold">순이익</span><span class="font-extrabold" style="color:${profit < 0 ? '#f87171' : '#4ade80'}">${profit < 0 ? '−' : ''}${fmtMoney(Math.abs(profit))}원</span></div>`;
+                    `<div class="flex justify-between pt-1.5 border-t" style="border-color: var(--line)"><span class="font-bold">순이익</span><span class="font-extrabold" style="color:${profit < 0 ? 'var(--c-red)' : 'var(--c-green)'}">${profit < 0 ? '−' : ''}${fmtMoney(Math.abs(profit))}원</span></div>`;
             }
 
             const memoRow = document.getElementById('detail-memo-row');
@@ -2485,7 +2614,7 @@
                 ? `<i class="fa-solid fa-circle-check"></i> 완료됨${ev.doneAt ? ` · ${Number(ev.doneAt.slice(5, 7))}/${Number(ev.doneAt.slice(8, 10))}` : ''} <span class="text-xs font-semibold opacity-80 ml-1">(누르면 취소)</span>`
                 : '<i class="fa-regular fa-circle-check"></i> 블로그 작성 완료로 표시';
             b.style.cssText = ev.done
-                ? 'background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.5)'
+                ? 'background: rgba(34,197,94,.15); color: var(--c-green); border: 1px solid rgba(34,197,94,.5)'
                 : 'background: #22c55e; color: #fff';
         }
 
@@ -2712,7 +2841,7 @@
             const fmtK = v => Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : Math.round(v / 1e3) + 'K';
             const grid = [-1, -0.5, 0, 0.5, 1].map(f => {
                 const v = maxAbs * f, y = yBar(v);
-                return `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="${f === 0 ? '#52525b' : '#27272a'}" stroke-width="${f === 0 ? 1.2 : 1}" ${f === 0 ? '' : 'stroke-dasharray="3 4"'}/>
+                return `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" style="stroke: ${f === 0 ? 'var(--axis)' : 'var(--grid)'}" stroke-width="${f === 0 ? 1.2 : 1}" ${f === 0 ? '' : 'stroke-dasharray="3 4"'}/>
                         <text x="${padL - 8}" y="${y + 4}" text-anchor="end" class="ax">${fmtK(v)}</text>`;
             }).join('');
             const bars = list.map((m, i) => {
@@ -2720,7 +2849,7 @@
                 const y = yBar(Math.max(0, m.settle)), h = Math.abs(yBar(m.settle) - y0);
                 const sel = m.ym === selYm;
                 return `<rect x="${x - bw / 2}" y="${m.settle >= 0 ? yBar(m.settle) : y0}" width="${bw}" height="${Math.max(1.5, h)}" rx="2" fill="${m.settle >= 0 ? UP : DOWN}" opacity="${sel ? 1 : .78}"/>
-                        ${sel ? `<rect x="${x - step / 2}" y="${padT}" width="${step}" height="${ih}" fill="#fff" opacity=".05"/>` : ''}
+                        ${sel ? `<rect x="${x - step / 2}" y="${padT}" width="${step}" height="${ih}" style="fill: var(--sel)" opacity=".05"/>` : ''}
                         <text x="${x}" y="${H - 8}" text-anchor="middle" class="ax ${sel ? 'sel' : ''}">${list.length > 14 && i % 2 ? '' : (m.ym.slice(5) === '01' ? m.ym.slice(2, 4) + '.' : '') + Number(m.ym.slice(5))}</text>`;
             }).join('');
             const linePts = list.map((m, i) => `${padL + step * i + step / 2},${yCum(cums[i])}`).join(' ');
@@ -2729,9 +2858,9 @@
             return `
                 <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto chart" id="pnl-svg" preserveAspectRatio="none">
                     ${grid}${bars}
-                    <polyline points="${linePts}" fill="none" stroke="#facc15" stroke-width="2" stroke-linejoin="round"/>
-                    ${list.map((m, i) => `<circle cx="${padL + step * i + step / 2}" cy="${yCum(cums[i])}" r="${m.ym === selYm ? 4 : 2.2}" fill="#facc15"/>`).join('')}
-                    <text x="${W - padR + 6}" y="${yCum(last) + 4}" class="ax" fill="#facc15">${fmtK(last)}</text>
+                    <polyline points="${linePts}" fill="none" style="stroke: var(--c-yellow)" stroke-width="2" stroke-linejoin="round"/>
+                    ${list.map((m, i) => `<circle cx="${padL + step * i + step / 2}" cy="${yCum(cums[i])}" r="${m.ym === selYm ? 4 : 2.2}" style="fill: var(--c-yellow)"/>`).join('')}
+                    <text x="${W - padR + 6}" y="${yCum(last) + 4}" class="ax" style="fill: var(--c-yellow)">${fmtK(last)}</text>
                     ${hits}
                 </svg>`;
         }
@@ -2749,7 +2878,7 @@
             const path = arr => arr.map((v, i) => `${i ? 'L' : 'M'}${X(i)},${Y(v)}`).join(' ');
             const area = `${path(outs)} L${X(outs.length - 1)},${padT + ih} L${X(0)},${padT + ih} Z`;
             const fmtM = v => (v / 1e6).toFixed(1) + 'M';
-            const grid = [0, .25, .5, .75, 1].map(f => `<line x1="${padL}" x2="${W - padR}" y1="${Y(maxV * f)}" y2="${Y(maxV * f)}" stroke="#27272a" stroke-dasharray="3 4"/><text x="${padL - 8}" y="${Y(maxV * f) + 4}" text-anchor="end" class="ax">${fmtM(maxV * f)}</text>`).join('');
+            const grid = [0, .25, .5, .75, 1].map(f => `<line x1="${padL}" x2="${W - padR}" y1="${Y(maxV * f)}" y2="${Y(maxV * f)}" style="stroke: var(--grid)" stroke-dasharray="3 4"/><text x="${padL - 8}" y="${Y(maxV * f) + 4}" text-anchor="end" class="ax">${fmtM(maxV * f)}</text>`).join('');
             const si = list.findIndex(m => m.ym === selYm);
             return `
                 <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto chart" preserveAspectRatio="none">
@@ -2758,8 +2887,8 @@
                     <path d="${path(list.map(m => m.income))}" fill="none" stroke="${UP}" stroke-width="1.5" opacity=".55" stroke-dasharray="5 4"/>
                     <path d="${area}" fill="url(#spendFill)"/>
                     <path d="${path(outs)}" fill="none" stroke="${DOWN}" stroke-width="2.2"/>
-                    <path d="${path(ma)}" fill="none" stroke="#a78bfa" stroke-width="1.8"/>
-                    ${si >= 0 ? `<line x1="${X(si)}" x2="${X(si)}" y1="${padT}" y2="${padT + ih}" stroke="#fff" opacity=".25"/><circle cx="${X(si)}" cy="${Y(outs[si])}" r="4" fill="${DOWN}"/>` : ''}
+                    <path d="${path(ma)}" fill="none" style="stroke: var(--c-violet)" stroke-width="1.8"/>
+                    ${si >= 0 ? `<line x1="${X(si)}" x2="${X(si)}" y1="${padT}" y2="${padT + ih}" style="stroke: var(--sel)" opacity=".25"/><circle cx="${X(si)}" cy="${Y(outs[si])}" r="4" fill="${DOWN}"/>` : ''}
                     ${list.map((m, i) => (list.length > 14 && i % 2) ? '' : `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" class="ax ${m.ym === selYm ? 'sel' : ''}">${Number(m.ym.slice(5))}</text>`).join('')}
                 </svg>`;
         }
@@ -2788,7 +2917,7 @@
         function readoutHtml(m, cum) {
             if (!m) return '';
             return `
-                <span class="font-bold text-white">${ymLabel(m.ym)}</span>
+                <span class="font-bold text-strong">${ymLabel(m.ym)}</span>
                 <span>수입 <b class="text-green-400">${fmtMoney(m.income)}</b></span>
                 <span>지출 <b class="text-red-400">${fmtMoney(outOf(m))}</b></span>
                 <span>손익 <b class="${m.settle >= 0 ? 'text-green-400' : 'text-red-400'}">${signed(m.settle)}</b></span>
@@ -2869,12 +2998,12 @@
             const quick = `
                 <div class="grid grid-cols-2 gap-2.5 mb-3">
                     <button class="quick-btn" onclick="openBillsModal()">
-                        <span class="qi" style="background:rgba(59,130,246,.15);color:#60a5fa"><i class="fa-regular fa-credit-card"></i></span>
+                        <span class="qi" style="background:rgba(59,130,246,.15);color: var(--c-blue)"><i class="fa-regular fa-credit-card"></i></span>
                         <span class="flex-1 min-w-0 text-left"><b>카드값 · 공과금</b><small>${ymShort(ym)} ${billCount}/8칸 · ${fmtMoney(billTotal)}원</small></span>
                         <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
                     </button>
                     <button class="quick-btn" onclick="openBonusModal()">
-                        <span class="qi" style="background:rgba(34,197,94,.15);color:#4ade80"><i class="fa-solid fa-gift"></i></span>
+                        <span class="qi" style="background:rgba(34,197,94,.15);color: var(--c-green)"><i class="fa-solid fa-gift"></i></span>
                         <span class="flex-1 min-w-0 text-left"><b>보너스</b><small>다훈 ${fmtMoney(bonusOf('다훈'))} · 성완 ${fmtMoney(bonusOf('성완'))}</small></span>
                         <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
                     </button>
@@ -2889,14 +3018,14 @@
                     <h3>월별 손익 <span class="seg-mini">${ranges.map(([n, t]) => `<button class="${chartRange === n ? 'on' : ''}" onclick="setChartRange(${n})">${t}</button>`).join('')}</span></h3>
                     <div id="pnl-readout" class="readout">${readoutHtml(m || list[list.length - 1], cumSel)}</div>
                     ${list.length ? pnlChartSvg(list, ym) : '<p class="text-sm text-gray-500">기록이 없어요.</p>'}
-                    <div class="legend-row"><span><i style="background:${UP}"></i>흑자</span><span><i style="background:${DOWN}"></i>적자</span><span><i style="background:#facc15;height:2px"></i>누적 손익</span></div>
+                    <div class="legend-row"><span><i style="background:${UP}"></i>흑자</span><span><i style="background:${DOWN}"></i>적자</span><span><i style="background: var(--c-yellow);height:2px"></i>누적 손익</span></div>
                 </div>`;
 
             const trendCard = `
                 <div class="bg-card">
                     <h3>지출 추세 <small>고정비 + 지출</small></h3>
                     ${list.length ? trendChartSvg(list, ym) : ''}
-                    <div class="legend-row"><span><i style="background:${DOWN}"></i>총지출</span><span><i style="background:#a78bfa"></i>3개월 평균</span><span><i style="background:${UP};opacity:.6"></i>수입</span></div>
+                    <div class="legend-row"><span><i style="background:${DOWN}"></i>총지출</span><span><i style="background: var(--c-violet)"></i>3개월 평균</span><span><i style="background:${UP};opacity:.6"></i>수입</span></div>
                 </div>`;
 
             const heatCard = `
@@ -2959,9 +3088,9 @@
         function renderBudgetHistoryHtml() {
             if (!budgetEdits.length) return '';
             const st = {
-                pending: '<span class="tag" style="background: rgba(234,179,8,.15); color:#facc15"><i class="fa-regular fa-clock"></i> 대기</span>',
-                done: '<span class="tag" style="background: rgba(34,197,94,.15); color:#4ade80"><i class="fa-solid fa-check"></i> 반영</span>',
-                error: '<span class="tag" style="background: rgba(239,68,68,.15); color:#f87171"><i class="fa-solid fa-triangle-exclamation"></i> 실패</span>'
+                pending: '<span class="tag" style="background: rgba(234,179,8,.15); color: var(--c-yellow)"><i class="fa-regular fa-clock"></i> 대기</span>',
+                done: '<span class="tag" style="background: rgba(34,197,94,.15); color: var(--c-green)"><i class="fa-solid fa-check"></i> 반영</span>',
+                error: '<span class="tag" style="background: rgba(239,68,68,.15); color: var(--c-red)"><i class="fa-solid fa-triangle-exclamation"></i> 실패</span>'
             };
             return `
                 <div class="bg-card">
@@ -3132,7 +3261,7 @@
                 <div class="flex items-end justify-between">
                     <div><div class="text-xs text-gray-400">${ymLabel(s.ym)} ${s.person} 보너스 합계 (시트)</div>
                     <div class="text-2xl font-extrabold mt-0.5">${c ? fmtMoney(c.v) + '원' : '<span class="text-yellow-300 text-sm">시트에 이 달 줄이 없어요</span>'}</div></div>
-                    ${c && c.f ? '<span class="tag" style="background:rgba(239,68,68,.15);color:#f87171">수식 칸</span>' : ''}
+                    ${c && c.f ? '<span class="tag" style="background:rgba(239,68,68,.15);color: var(--c-red)">수식 칸</span>' : ''}
                 </div>
                 ${hist.length ? `<div class="mt-2 pt-2 border-t space-y-1" style="border-color:var(--line)">${hist.map(e => `
                     <div class="flex justify-between text-xs"><span class="text-gray-400">${e.createdAt && e.createdAt.toDate ? e.createdAt.toDate().toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) : ''} ${escapeHtml(e.note || '')}</span>
