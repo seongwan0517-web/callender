@@ -36,6 +36,12 @@ service cloud.firestore {
         && request.resource.data.emails.size() <= 100;
     }
 
+    // 공휴일 (동기화 Apps Script 가 공공데이터포털에서 받아 저장, 앱은 읽기만)
+    match /config/holidays {
+      allow read: if isMember();
+      allow write: if false;
+    }
+
     // 멤버가 직접 추가한 협찬 플랫폼 / 콘텐츠 종류 (팀 공용 선택지)
     match /config/options {
       allow read: if isMember();

@@ -3,9 +3,9 @@
 // - 디자인·아이콘 등 같은 사이트 파일: 저장본을 바로 쓰고 뒤에서 최신으로 갱신.
 // - 버전이 박힌 라이브러리·글꼴(CDN): 한 번 받으면 휴대폰에 저장해 두고 다시 받지 않는다.
 // 로그인·데이터(Firebase) 요청은 건드리지 않는다.
-const CACHE = 'time-schedule-v6';
+const CACHE = 'time-schedule-v7';
 const LIBS = 'time-schedule-libs-v1';
-const SHELL = ['/', '/index.html', '/app.css?v=2', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const SHELL = ['/', '/index.html', '/app.css?v=3', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 // 주소에 버전이 들어 있어 내용이 바뀌지 않는 외부 파일들
 const LIB_HOSTS = ['cdn.jsdelivr.net', 'cdnjs.cloudflare.com'];

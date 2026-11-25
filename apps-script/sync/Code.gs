@@ -85,6 +85,9 @@ function syncToCalendar() {
 
     // 가계부: 앱에서 넣은 입력을 시트에 반영하고, 시트 요약을 앱으로 보냄 (일정과는 완전히 별개)
     try { syncBudget(); } catch (e) { console.log("가계부 동기화 실패: " + e.message); }
+
+    // 공휴일: 12시간에 한 번 공공데이터포털에서 받아 앱에 넘겨줌 (Holidays.gs)
+    try { syncHolidays(); } catch (e) { console.log("공휴일 동기화 실패: " + e.message); }
   } finally {
     lock.releaseLock();
   }
