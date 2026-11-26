@@ -255,6 +255,8 @@
         .ticker-cells span { color: var(--faint); font-weight: 700; }
         .ticker-cells b { font-size: 17px; font-weight: 800; color: var(--text); }
         .ticker-cells em { font-style: normal; color: var(--faint); font-size: 11px; }
+        .ticker-cells em.bonus-line { color: var(--c-green); font-weight: 700; margin-top: 2px; }
+        .ticker-cells em.bonus-line b { font-size: 11px; color: inherit; }
         .quick-btn { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); transition: background .15s; }
         .quick-btn:hover { background: var(--surface-2); }
         .quick-btn b { display: block; font-size: 14px; }
@@ -434,7 +436,7 @@
         html[data-theme="light"] .theme-seg button.active { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
     </style>
     <!-- 디자인: Tailwind 를 미리 빌드한 파일 (예전 CDN 처럼 위 스타일 뒤에 둠 / 다시 만들기: build/README.md) -->
-    <link rel="stylesheet" href="/app.css?v=3">
+    <link rel="stylesheet" href="/app.css?v=4">
 </head>
 <body data-tab="home" data-side="home">
 
@@ -768,7 +770,7 @@
         <div class="sheet w-full max-w-md overflow-hidden max-h-[95dvh] overflow-y-auto">
             <div class="sheet-handle"></div>
             <div class="px-5 pt-4 pb-1 flex justify-between items-center">
-                <h3 class="text-xl font-extrabold"><i class="fa-regular fa-credit-card text-blue-400 mr-1.5"></i>카드값 · 공과금</h3>
+                <h3 class="text-xl font-extrabold"><i class="fa-regular fa-credit-card text-blue-400 mr-1.5"></i><span id="bills-title">카드값 · 공과금</span></h3>
                 <button onclick="closeModal('bills-modal')" class="w-9 h-9 rounded-full hover:bg-white/10 text-gray-400 hover:text-white" aria-label="닫기"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <p class="px-5 text-xs text-gray-400">달을 고르고 청구된 금액을 적으세요. 적은 칸만 시트에 반영돼요.</p>
@@ -2819,6 +2821,9 @@
         const BUDGET_TOTAL_LABELS = ['소합계', '합계', '총합', '고정비용', '월 수입'];
         const SAVING_LABELS = /적금|연금|청약/;            // 저축성 항목은 지출 종목표에서 뺌
         const PERSON_COLOR = { '다훈': '#ec4899', '성완': '#3b82f6', '특별예산': '#eab308' };
+        const BUDGET_PEOPLE_APP = ['다훈', '성완'];
+        // 시트의 그 달 회사 보너스 (수입에 이미 포함된 금액)
+        const bonusAt = (ym, person) => (((budget && budget.editable) || {})[`${ym}|bonus|${person}|보너스(회사)`] || {}).v || 0;
         const UP = '#22c55e', DOWN = '#ef4444';
         const won = n => `${(Number(n) || 0) < 0 ? '−' : ''}${fmtMoney(Math.abs(Number(n) || 0))}원`;
         const signed = n => `${(Number(n) || 0) > 0 ? '+' : (Number(n) || 0) < 0 ? '−' : ''}${fmtMoney(Math.abs(Number(n) || 0))}`;
@@ -2978,7 +2983,7 @@
             if (!m) return '';
             return `
                 <span class="font-bold text-strong">${ymLabel(m.ym)}</span>
-                <span>수입 <b class="text-green-400">${fmtMoney(m.income)}</b></span>
+                <span>수입 <b class="text-green-400">${fmtMoney(m.income)}</b>${(() => { const b = bonusAt(m.ym, '다훈') + bonusAt(m.ym, '성완'); return b ? ` <small class="text-gray-500">(보너스 ${fmtMoney(b)})</small>` : ''; })()}</span>
                 <span>지출 <b class="text-red-400">${fmtMoney(outOf(m))}</b></span>
                 <span>손익 <b class="${m.settle >= 0 ? 'text-green-400' : 'text-red-400'}">${signed(m.settle)}</b></span>
                 <span>누적 <b class="text-yellow-300">${signed(cum)}</b></span>`;
@@ -3034,6 +3039,13 @@
                 const good = goodUp ? d > 0 : d < 0;
                 return `<span class="${good ? 'text-green-400' : 'text-red-400'}">${d > 0 ? '▲' : '▼'}${fmtMoney(Math.abs(d))}</span>`;
             };
+            // 이 달 보너스 (수입에 포함된 금액)
+            const bonusOf = p => bonusAt(ym, p);
+            const bonusSum = bonusOf('다훈') + bonusOf('성완');
+            const bonusLine = bonusSum
+                ? `<em class="bonus-line"><i class="fa-solid fa-gift"></i> 보너스 <b>${fmtMoney(bonusSum)}</b></em>
+                   <em>${BUDGET_PEOPLE_APP.filter(p => bonusOf(p)).map(p => `${p} ${fmtMoney(bonusOf(p))}`).join(' · ')}</em>`
+                : '<em><i class="fa-solid fa-gift"></i> 이 달 보너스 없음</em>';
             const ticker = m ? `
                 <div class="ticker mb-3">
                     <div class="ticker-main">
@@ -3042,7 +3054,7 @@
                         <div class="text-sm mt-1">${prev ? `지난달 ${signed(prev.settle)} 대비 ${chg(m.settle, prev.settle, true)}` : ''}</div>
                     </div>
                     <div class="ticker-cells">
-                        <div><span>수입</span><b>${fmtMoney(m.income)}</b>${prev ? chg(m.income, prev.income, true) : ''}</div>
+                        <div><span>수입</span><b>${fmtMoney(m.income)}</b>${prev ? chg(m.income, prev.income, true) : ''}${bonusLine}</div>
                         <div><span>총지출</span><b>${fmtMoney(outOf(m))}</b>${prev ? chg(outOf(m), outOf(prev), false) : ''}</div>
                         <div><span>저축률</span><b class="${rate >= 0 ? 'text-green-400' : 'text-red-400'}">${rate}%</b><em>손익÷수입</em></div>
                         <div><span>흑자 달</span><b>${plus}/${upTo.length}</b><em>연속 ${streak}개월</em></div>
@@ -3051,18 +3063,26 @@
 
             // 빠른 입력
             const ed = budget.editable || {};
-            const billCount = BILL_GROUPS.reduce((a, g) => a + g.items.filter(it => (ed[`${ym}|${g.kind}|${g.person}|${it}`] || {}).v).length, 0);
-            const billTotal = BILL_GROUPS.reduce((a, g) => a + g.items.reduce((s, it) => s + ((ed[`${ym}|${g.kind}|${g.person}|${it}`] || {}).v || 0), 0), 0);
-            const bonusOf = p => (ed[`${ym}|bonus|${p}|보너스(회사)`] || {}).v || 0;
+            const cellV = (kind, person, it) => (ed[`${ym}|${kind}|${person}|${it}`] || {}).v || 0;
+            const cardGroups = BILL_GROUPS.filter(g => g.kind === 'card');
+            const cardCount = cardGroups.reduce((a, g) => a + g.items.filter(it => cellV(g.kind, g.person, it)).length, 0);
+            const cardSlots = cardGroups.reduce((a, g) => a + g.items.length, 0);
+            const cardTotal = cardGroups.reduce((a, g) => a + g.items.reduce((s, it) => s + cellV(g.kind, g.person, it), 0), 0);
+            const mgmt = cellV('utility', '다훈', '관리비'), gas = cellV('utility', '다훈', '가스비');
             const pending = budgetEdits.filter(e => e.status === 'pending').length;
             const quick = `
-                <div class="grid grid-cols-2 gap-2.5 mb-3">
-                    <button class="quick-btn" onclick="openBillsModal()">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2.5 mb-3">
+                    <button class="quick-btn" onclick="openBillsModal(null, 'card')">
                         <span class="qi" style="background:rgba(59,130,246,.15);color: var(--c-blue)"><i class="fa-regular fa-credit-card"></i></span>
-                        <span class="flex-1 min-w-0 text-left"><b>카드값 · 공과금</b><small>${ymShort(ym)} ${billCount}/8칸 · ${fmtMoney(billTotal)}원</small></span>
+                        <span class="flex-1 min-w-0 text-left"><b>카드값</b><small>${ymShort(ym)} ${cardCount}/${cardSlots}칸 · ${fmtMoney(cardTotal)}원</small></span>
                         <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
                     </button>
-                    <button class="quick-btn" onclick="openBonusModal()">
+                    <button class="quick-btn" onclick="openBillsModal(null, 'utility')">
+                        <span class="qi" style="background:rgba(234,179,8,.15);color: var(--c-yellow)"><i class="fa-solid fa-fire-flame-simple"></i></span>
+                        <span class="flex-1 min-w-0 text-left"><b>관리비 · 가스비</b><small>관리 ${fmtMoney(mgmt)} · 가스 ${fmtMoney(gas)}</small></span>
+                        <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+                    </button>
+                    <button class="quick-btn col-span-2 md:col-span-1" onclick="openBonusModal()">
                         <span class="qi" style="background:rgba(34,197,94,.15);color: var(--c-green)"><i class="fa-solid fa-gift"></i></span>
                         <span class="flex-1 min-w-0 text-left"><b>보너스</b><small>다훈 ${fmtMoney(bonusOf('다훈'))} · 성완 ${fmtMoney(bonusOf('성완'))}</small></span>
                         <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
@@ -3199,8 +3219,13 @@
         }
 
         // ---------- 카드값 · 공과금 (한 화면에서 한 번에) ----------
-        function openBillsModal(ym) {
+        // kind: 'card' = 카드값만, 'utility' = 관리비·가스비만, 없으면 전부
+        let billsKind = null;
+        const BILLS_TITLE = { card: '카드값', utility: '관리비 · 가스비' };
+        function openBillsModal(ym, kind) {
             billsYm = ym || budgetYm || ymNow();
+            billsKind = kind || null;
+            document.getElementById('bills-title').textContent = BILLS_TITLE[billsKind] || '카드값 · 공과금';
             document.getElementById('bills-error').classList.add('hidden');
             renderBillsModal();
             openModal('bills-modal');
@@ -3219,7 +3244,7 @@
             const typed = {};
             if (keep) document.querySelectorAll('#bills-list input[data-key]').forEach(i => { typed[i.dataset.key] = i.value; });
             document.getElementById('bills-months').innerHTML = monthChipsHtml(billsYm, 'pickBillsMonth');
-            document.getElementById('bills-list').innerHTML = BILL_GROUPS.map(g => `
+            document.getElementById('bills-list').innerHTML = BILL_GROUPS.filter(g => !billsKind || g.kind === billsKind).map(g => `
                 <div class="bill-group">
                     <div class="bill-head">${g.person && g.kind === 'card' ? `<i style="background:${PERSON_COLOR[g.person]}"></i>` : '<span>⚡</span>'}${g.title}</div>
                     ${g.items.map(it => {
