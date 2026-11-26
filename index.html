@@ -260,6 +260,21 @@
         .bonus-row i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
         .bonus-row strong { margin-left: auto; color: var(--text); font-size: 14px; font-weight: 800; }
         .bonus-split { font-size: 10px; color: var(--faint); text-align: right; margin-top: -1px; }
+        /* 날짜 미정 협찬 */
+        .undated-box { border-radius: 16px; padding: 12px; margin-bottom: 14px; background: rgba(155, 89, 182, .10); border: 1px dashed rgba(155, 89, 182, .55); }
+        .undated-head { font-size: 13px; font-weight: 700; color: var(--c-purple-soft); display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+        .undated-head b { color: var(--text); }
+        .undated-head small { font-size: 11px; color: var(--faint); font-weight: 600; }
+        .undated-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; }
+        .undated-row + .undated-row { border-top: 1px solid rgba(155, 89, 182, .25); }
+        .undated-btn { flex: none; font-size: 12px; font-weight: 800; padding: 7px 10px; border-radius: 10px; background: var(--blog); color: #fff; white-space: nowrap; }
+        .undated-toggle { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); cursor: pointer; }
+        .undated-toggle b { display: block; font-size: 14px; }
+        .undated-toggle small { display: block; font-size: 11px; color: var(--faint); margin-top: 1px; }
+        .sched-show { display: none; }
+        #add-modal.schedule-only .sched-hide { display: none !important; }
+        #add-modal.schedule-only .sched-show { display: block; }
+        #add-modal.schedule-only #blog-box { background: transparent !important; border: none !important; padding: 0 !important; }
         .bill-table-wrap { overflow-x: auto; margin: 0 -4px; }
         .bill-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px; }
         .bill-table th, .bill-table td { padding: 7px 6px; text-align: right; white-space: nowrap; }
@@ -454,7 +469,7 @@
         html[data-theme="light"] .theme-seg button.active { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
     </style>
     <!-- 디자인: Tailwind 를 미리 빌드한 파일 (예전 CDN 처럼 위 스타일 뒤에 둠 / 다시 만들기: build/README.md) -->
-    <link rel="stylesheet" href="/app.css?v=7">
+    <link rel="stylesheet" href="/app.css?v=8">
 </head>
 <body data-tab="home" data-side="home">
 
@@ -546,6 +561,7 @@
                     </div>
                     <div class="mobile-only chip-row filter-chips mb-4"></div>
                     <h3 class="mobile-only text-base font-bold mb-3">다가오는 일정</h3>
+                    <div class="undated-slot"></div>
                     <div id="upcoming-list">
                         <div class="empty"><i class="fa-solid fa-spinner fa-spin mr-2"></i> 일정을 불러오는 중...</div>
                     </div>
@@ -555,6 +571,7 @@
                 <section id="panel-blog" class="panel">
                     <h2 class="text-xl font-extrabold mb-1">협찬 관리</h2>
                     <p class="text-sm text-gray-400 mb-4">블로그 협찬만 모아 봐요. 글을 올렸으면 ✓ 를 눌러 완료하세요.</p>
+                    <div class="undated-slot"></div>
                     <div id="blog-stats" class="grid grid-cols-3 gap-2.5 mb-4"></div>
                     <div class="chip-row mb-4" id="blog-status-chips"></div>
                     <div id="blog-list"><div class="empty"><i class="fa-solid fa-spinner fa-spin mr-2"></i> 불러오는 중...</div></div>
@@ -612,13 +629,13 @@
         <div class="sheet w-full max-w-md overflow-hidden max-h-[95dvh] overflow-y-auto">
             <div class="sheet-handle"></div>
             <div class="px-5 pt-4 pb-3 flex justify-between items-center">
-                <h3 id="modal-title" class="text-xl font-extrabold">새 일정 등록</h3>
+<div class="min-w-0"><h3 id="modal-title" class="text-xl font-extrabold">새 일정 등록</h3><p id="schedule-title" class="sched-show text-sm text-purple-300 font-bold truncate"></p></div>
                 <button onclick="closeModal('add-modal')" class="w-9 h-9 rounded-full hover:bg-white/10 text-gray-400 hover:text-white" aria-label="닫기"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="px-5 pb-2 space-y-4">
-                <input type="text" id="ev-title" maxlength="100" class="net-input text-lg font-bold" placeholder="일정 제목 (예: 강남 맛집 체험)">
+                <input type="text" id="ev-title" maxlength="100" class="net-input text-lg font-bold sched-hide" placeholder="일정 제목 (예: 강남 맛집 체험)">
 
-                <div>
+                <div class="sched-hide">
                     <span class="label">일정 종류</span>
                     <select id="ev-category" class="hidden" onchange="onCategoryChange()">
                         <option value="회사 일정">회사 일정</option>
@@ -652,6 +669,11 @@
 
                 <!-- 블로그 협찬 선택 시에만 표시 -->
                 <div id="blog-box" class="hidden space-y-4 rounded-2xl p-4" style="background: rgba(155,89,182,.08); border: 1px solid rgba(155,89,182,.35)">
+                    <label class="undated-toggle sched-hide">
+                        <input type="checkbox" id="ev-undated" class="w-5 h-5 accent-purple-500 cursor-pointer" onchange="formUndated = this.checked; applyUndatedMode()">
+                        <span><b>방문 날짜 미정</b><small>협찬은 확정됐지만 날짜가 아직이면 체크 → 나중에 날짜·시간만 입력</small></span>
+                    </label>
+                    <div id="visit-when" class="space-y-4">
                     <div>
                         <span class="label">방문 날짜</span>
                         <input type="date" id="ev-visit-date" class="net-input">
@@ -675,7 +697,8 @@
                         <span class="label">머무는 시간</span>
                         <div id="duration-grid" class="time-grid" style="grid-template-columns: repeat(4, 1fr)"></div>
                     </div>
-                    <div>
+                    </div>
+                    <div class="sched-hide">
                         <span class="label">방문 주소</span>
                         <div class="flex gap-2">
                             <input type="text" id="ev-address" maxlength="200" class="net-input" placeholder="도로명·지번 주소 입력 후 검색" autocomplete="off"
@@ -694,23 +717,23 @@
                             <div id="postcode-wrap" class="rounded-xl overflow-hidden" style="height: 420px; border: 1px solid var(--line)"></div>
                         </div>
                     </div>
-                    <div>
+                    <div class="sched-hide">
                         <span class="label">제출 마감일</span>
                         <input type="date" id="ev-deadline" class="net-input">
                     </div>
-                    <div>
+                    <div class="sched-hide">
                         <span class="label">캠페인 링크</span>
                         <input type="url" id="ev-link" maxlength="500" class="net-input" placeholder="https://" autocomplete="off">
                     </div>
-                    <div>
+                    <div class="sched-hide">
                         <span class="label">플랫폼</span>
                         <div id="platform-chips" class="flex flex-wrap gap-2"></div>
                     </div>
-                    <div>
+                    <div class="sched-hide">
                         <span class="label">콘텐츠 종류 <span class="text-gray-500 font-normal">(여러 개 선택 가능)</span></span>
                         <div id="content-chips" class="flex flex-wrap gap-2"></div>
                     </div>
-                    <div>
+                    <div class="sched-hide">
                         <span class="label">비용 관리</span>
                         <div class="space-y-2">
                             <label class="money-row"><span>협찬 상품 가치</span><input type="text" inputmode="numeric" id="ev-product" class="money-input" placeholder="0" oninput="onMoneyInput(this)"><em>원</em></label>
@@ -724,12 +747,12 @@
                     </div>
                 </div>
 
-                <div>
+                <div class="sched-hide">
                     <span class="label">메모 (선택)</span>
                     <textarea id="ev-memo" rows="3" maxlength="500" class="net-input" placeholder="업체명, 방문 주소, 요청사항 등"></textarea>
                 </div>
 
-                <div class="flex items-center gap-2 text-sm text-gray-400">
+                <div class="flex items-center gap-2 text-sm text-gray-400 sched-hide">
                     <i class="fa-regular fa-user"></i> 작성자 <span id="ev-author" class="text-gray-200 font-semibold"></span>
                 </div>
                 <p id="add-error" class="text-red-400 text-sm hidden"></p>
@@ -1041,6 +1064,7 @@
                     lng: Number(d.lng) || 0,
                     done: !!d.done,
                     doneAt: d.doneAt || '',
+                    undated: !!d.undated,
                     canEdit: isAdmin() || d.authorEmail === currentUser.email
                 },
                 classNames: d.done ? ['ev-done'] : []
@@ -1077,7 +1101,20 @@
                 if (d.endTs.toDate() > start && d.startTs.toDate() < end) events.push(ev);
                 if (withDeadlines && d.category === BLOG && d.deadline && d.deadline >= s0 && d.deadline < e0) events.push(deadlineMarker(ev));
             });
+            // 날짜 미정 협찬도 제출 마감일은 달력에 표시
+            if (withDeadlines) {
+                (await fetchUndated()).forEach(ev => {
+                    const dl = ev.extendedProps.deadline;
+                    if (dl && dl >= s0 && dl < e0) events.push(deadlineMarker(ev));
+                });
+            }
             return { events, legend };
+        }
+
+        // 날짜 미정 협찬 (startTs 가 없어 기간 조회에 안 잡힘)
+        async function fetchUndated() {
+            const snap = await fastGet(db.collection('events').where('undated', '==', true));
+            return snap.docs.map(docToEvent);
         }
 
         // 금액 입력값 → 숫자 (쉼표 제거)
@@ -1085,9 +1122,26 @@
         const fmtMoney = n => (Number(n) || 0).toLocaleString('ko-KR');
 
         // 폼 값 → 저장할 문서. 종일 일정은 '포함' 종료일을 받아 다음 날(exclusive)로 바꿔 저장
-        function buildEventData({ title, start, end, allDay, category, platform, memo,
+        // 날짜 미정 협찬(undated)은 날짜 칸을 비우고 startTs/endTs 를 두지 않음 (달력·알림에서 빠짐)
+        function buildEventData({ title, start, end, allDay, category, platform, memo, undated = false,
                                   deadline = '', link = '', contentTypes = [], productValue = 0, adFee = 0, myCost = 0, address = '', lat = 0, lng = 0 }) {
             const blog = category === BLOG;
+            undated = !!(blog && undated);
+            const base = {
+                title, category, memo, allDay: undated ? true : allDay, undated,
+                platform: blog ? platform : '',
+                deadline: blog ? deadline : '',
+                link: blog ? link : '',
+                contentTypes: blog ? contentTypes : [],
+                productValue: blog ? productValue : 0,
+                adFee: blog ? adFee : 0,
+                myCost: blog ? myCost : 0,
+                address: blog ? address : '',
+                lat: blog && address ? lat : 0,
+                lng: blog && address ? lng : 0,
+                updatedAt: serverNow()
+            };
+            if (undated) return { ...base, start: '', end: '' };
             let startDate, endDate, startStr, endStr;
             if (allDay) {
                 startDate = parseLocal(start);
@@ -1101,22 +1155,7 @@
                 startStr = startDate.toISOString();
                 endStr = endDate.toISOString();
             }
-            return {
-                title, category, memo, allDay,
-                platform: blog ? platform : '',
-                deadline: blog ? deadline : '',
-                link: blog ? link : '',
-                contentTypes: blog ? contentTypes : [],
-                productValue: blog ? productValue : 0,
-                adFee: blog ? adFee : 0,
-                myCost: blog ? myCost : 0,
-                address: blog ? address : '',
-                lat: blog && address ? lat : 0,
-                lng: blog && address ? lng : 0,
-                start: startStr, end: endStr,
-                startTs: ts(startDate), endTs: ts(endDate),
-                updatedAt: serverNow()
-            };
+            return { ...base, start: startStr, end: endStr, startTs: ts(startDate), endTs: ts(endDate) };
         }
 
         function addEventDoc(input) {
@@ -1136,7 +1175,12 @@
                 done, doneAt: done ? toDateStr(new Date()) : '', updatedAt: serverNow()
             });
         }
-        const updateEventDoc = (id, input) => db.collection('events').doc(id).update(buildEventData(input));
+        // 날짜 미정으로 바꾸면 기존 startTs/endTs 칸을 지움 (보안 규칙이 미정 일정엔 이 칸이 없어야 함)
+        const updateEventDoc = (id, input) => {
+            const data = buildEventData(input);
+            if (data.undated) { data.startTs = firebase.firestore.FieldValue.delete(); data.endTs = firebase.firestore.FieldValue.delete(); }
+            return db.collection('events').doc(id).update(data);
+        };
         const deleteEventDoc = id => db.collection('events').doc(id).delete();
 
         // 다른 사람이 일정을 바꾸면 화면을 자동으로 새로고침
@@ -1156,6 +1200,14 @@
                 if (first) { first = false; return; }
                 if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
                 if (!snap.docChanges().length) return;   // 내용 변화 없이 상태만 바뀐 경우
+                clearTimeout(changeTimer);
+                changeTimer = setTimeout(refreshAll, 400);
+            }, err => console.error(err));
+            // 날짜 미정 협찬은 위 조회(endTs)에 안 잡히므로 따로 지켜봄
+            let firstU = true;
+            db.collection('events').where('undated', '==', true).onSnapshot(snap => {
+                if (firstU) { firstU = false; return; }
+                if (snap.metadata.fromCache || snap.metadata.hasPendingWrites || !snap.docChanges().length) return;
                 clearTimeout(changeTimer);
                 changeTimer = setTimeout(refreshAll, 400);
             }, err => console.error(err));
@@ -2035,6 +2087,7 @@
                 lng: props.lng || 0,
                 done: !!props.done,
                 doneAt: props.doneAt || '',
+                undated: !!props.undated,
                 canEdit: !!props.canEdit
             };
         }
@@ -2059,6 +2112,7 @@
 
         // 시간 표시: 종일 / 기간 / 시각
         function timeText(ev) {
+            if (ev.undated || !ev.start) return '날짜 미정';
             if (ev.allDay) {
                 const last = addDays(ev.end, -1);
                 return toDateStr(last) > toDateStr(ev.start) ? `~ ${last.getMonth() + 1}/${last.getDate()}` : '종일';
@@ -2113,7 +2167,8 @@
                 const visits = allEvents
                     .filter(e => e.end > now && e.start < horizon)
                     .map(e => ({ ...e, listDate: e.start }));
-                const deadlines = allEvents
+                const undatedNow = (await fetchUndated()).map(normalize);   // 날짜 미정 협찬도 마감은 보여줌
+                const deadlines = [...allEvents, ...undatedNow]
                     .filter(e => e.category === BLOG && e.deadline && !e.done)   // 완료한 협찬은 마감 알림 카드에서 뺌
                     .map(e => ({ ...e, deadlineView: true, listDate: parseLocal(e.deadline) }))
                     .filter(e => e.listDate >= t && e.listDate < horizon);
@@ -2199,7 +2254,7 @@
         }
 
         const isOverdue = ev => !ev.done && ev.deadline && parseLocal(ev.deadline) < startOfDay(new Date());
-        const keyDate = ev => ev.deadline ? parseLocal(ev.deadline) : ev.start;
+        const keyDate = ev => ev.deadline ? parseLocal(ev.deadline) : (ev.start || new Date(8.64e15));
 
         function setBlogStatus(v) { blogStatus = v; renderBlogList(); }
 
@@ -2221,7 +2276,8 @@
 
             let list = { todo, overdue, done, all: blogEvents }[blogStatus].slice();
             const asc = (a, b) => keyDate(a) - keyDate(b);
-            const desc = (a, b) => (b.doneAt || '').localeCompare(a.doneAt || '') || (b.start - a.start);
+            const desc = (a, b) => (b.doneAt || '').localeCompare(a.doneAt || '') || ((b.start || 0) - (a.start || 0));
+            renderUndatedBoxes();
             if (blogStatus === 'done') list.sort(desc);
             else if (blogStatus === 'all') list = [...list.filter(e => !e.done).sort(asc), ...list.filter(e => e.done).sort(desc)];
             else list.sort(asc);
@@ -2234,9 +2290,52 @@
             box.innerHTML = `<div class="space-y-2.5">${list.map(ev => blogCardHtml(ev, blogEvents.indexOf(ev))).join('')}</div>`;
         }
 
+        // 📌 날짜 미정 협찬 모아 보기 (홈 · 협찬 관리 탭 맨 위)
+        function renderUndatedBoxes() {
+            const list = blogEvents.filter(ev => ev.undated && !ev.done)
+                .sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
+            const html = !list.length ? '' : `
+                <div class="undated-box">
+                    <div class="undated-head"><i class="fa-solid fa-thumbtack"></i> 날짜 미정 협찬 <b>${list.length}건</b><small>날짜가 정해지면 눌러서 입력하세요</small></div>
+                    ${list.map(ev => {
+                        const dl = ev.deadline ? (() => {
+                            const diff = Math.round((parseLocal(ev.deadline) - startOfDay(new Date())) / 86400000);
+                            return diff < 0 ? `마감 ${-diff}일 지남` : diff === 0 ? '오늘 마감' : `마감 D-${diff}`;
+                        })() : '';
+                        return `
+                        <div class="undated-row">
+                            <button class="flex-1 min-w-0 text-left" onclick="openUndatedDetail('${ev.id}')">
+                                <span class="block font-bold truncate">${escapeHtml(ev.title)}</span>
+                                <span class="block text-xs text-gray-400 truncate">${escapeHtml(ev.platform || '')}${dl ? ` · ${dl}` : ''}${ev.address ? ` · ${escapeHtml(ev.address.split(' ').slice(0, 3).join(' '))}` : ''}</span>
+                            </button>
+                            ${ev.canEdit ? `<button class="undated-btn" onclick="openScheduleModal('${ev.id}')"><i class="fa-regular fa-calendar-plus"></i> 날짜 정하기</button>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            document.querySelectorAll('.undated-slot').forEach(el => { el.innerHTML = html; });
+        }
+
+        const findBlogEvent = id => blogEvents.find(ev => ev.id === id);
+        function openUndatedDetail(id) { const ev = findBlogEvent(id); if (ev) openDetailsModal(ev); }
+
+        // 날짜 정하기: 수정 창을 '날짜·시간만' 보이게 열기 (나머지 내용은 그대로 저장)
+        function openScheduleModal(id) {
+            const ev = typeof id === 'string' ? findBlogEvent(id) : id;
+            if (!ev) return;
+            closeModal('details-modal');
+            openEditModal(ev);
+            formUndated = false;
+            if (!document.getElementById('ev-visit-date').value) document.getElementById('ev-visit-date').value = toDateStr(new Date());
+            applyUndatedMode();
+            document.getElementById('add-modal').classList.add('schedule-only');
+            document.getElementById('modal-title').textContent = '날짜 정하기';
+            document.getElementById('schedule-title').textContent = ev.title;
+            document.getElementById('btn-save').textContent = '이 날짜로 확정';
+        }
+
         function blogCardHtml(ev, idx) {
             const md = d => `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`;
-            const visit = `방문 ${md(ev.start)}${ev.allDay ? '' : ' ' + fmtTime(ev.start)}`;
+            const visit = ev.undated || !ev.start ? '방문 날짜 미정' : `방문 ${md(ev.start)}${ev.allDay ? '' : ' ' + fmtTime(ev.start)}`;
             let status = '';
             if (ev.done) status = `<span class="tag" style="background: rgba(34,197,94,.18); color: var(--c-green)"><i class="fa-solid fa-check"></i> 완료${ev.doneAt ? ' ' + Number(ev.doneAt.slice(5, 7)) + '/' + Number(ev.doneAt.slice(8, 10)) : ''}</span>`;
             else if (ev.deadline) {
@@ -2502,6 +2601,13 @@
             }
         }
 
+        // 협찬 '방문 날짜 미정' 체크 → 날짜·시간 칸 숨김
+        let formUndated = false;
+        function applyUndatedMode() {
+            document.getElementById('ev-undated').checked = formUndated;
+            document.getElementById('visit-when').classList.toggle('hidden', formUndated);
+        }
+
         function applyAllDayMode() {
             const allDay = document.getElementById('ev-allday').checked;
             const s = document.getElementById('ev-start');
@@ -2532,6 +2638,10 @@
             visitTime = null;
             visitAmPm = 'pm';
             visitDuration = 60;
+            formUndated = false;
+            applyUndatedMode();
+            document.getElementById('add-modal').classList.remove('schedule-only');
+            document.getElementById('schedule-title').textContent = '';
             updateProfit();
             onCategoryChange();
         }
@@ -2581,8 +2691,10 @@
                 document.getElementById('ev-address').value = ev.address || '';
                 formCoords = ev.lat && ev.lng ? { lat: ev.lat, lng: ev.lng } : null;
                 setTimeout(renderFormMap, 300);
-                document.getElementById('ev-visit-date').value = toDateStr(ev.start);
-                if (ev.allDay) {
+                formUndated = !!ev.undated || !ev.start;
+                applyUndatedMode();
+                document.getElementById('ev-visit-date').value = ev.start ? toDateStr(ev.start) : '';
+                if (ev.allDay || !ev.start) {
                     visitTime = null;
                 } else {
                     visitTime = { h: ev.start.getHours(), m: ev.start.getMinutes() };
@@ -2597,7 +2709,9 @@
             const e = document.getElementById('ev-end');
             document.getElementById('ev-allday').checked = ev.allDay;
             s.type = e.type = ev.allDay ? 'date' : 'datetime-local';
-            if (ev.allDay) {
+            if (!ev.start) {
+                s.value = e.value = toDateStr(new Date());   // 날짜 미정 협찬
+            } else if (ev.allDay) {
                 const last = addDays(ev.end, -1); // 종료일은 exclusive
                 s.value = toDateStr(ev.start);
                 e.value = toDateStr(last < ev.start ? ev.start : last);
@@ -2673,6 +2787,12 @@
 
             const dOpt = { month: 'short', day: 'numeric', weekday: 'short' };
             const tOpt = { hour: '2-digit', minute: '2-digit' };
+            if (ev.undated || !ev.start) {
+                document.getElementById('detail-time').innerHTML = '<span class="text-purple-300">방문 날짜 미정</span>' +
+                    (ev.canEdit ? ` <button class="undated-btn ml-2" onclick="openScheduleModal(currentDetail)"><i class="fa-regular fa-calendar-plus"></i> 날짜 정하기</button>` : '');
+                openModal('details-modal');
+                return;
+            }
             let text;
             if (ev.allDay) {
                 const last = addDays(ev.end, -1);
@@ -2770,8 +2890,12 @@
             if (category === BLOG) {
                 // 협찬: 방문 날짜 + 시간 버튼으로 시작/종료를 만든다 (시간 미정이면 종일)
                 const vd = document.getElementById('ev-visit-date').value;
-                if (!vd) return showError('방문 날짜를 선택하세요.');
-                if (visitTime) {
+                if (formUndated) {
+                    allDay = true;
+                    startVal = endVal = '';
+                } else if (!vd) {
+                    return showError('방문 날짜를 선택하세요. 아직 정해지지 않았으면 \'방문 날짜 미정\'을 체크하세요.');
+                } else if (visitTime) {
                     const s = new Date(`${vd}T${pad(visitTime.h)}:${pad(visitTime.m)}`);
                     allDay = false;
                     startVal = toLocalInput(s);
@@ -2795,12 +2919,15 @@
                     lat: formCoords ? formCoords.lat : 0,
                     lng: formCoords ? formCoords.lng : 0
                 };
-                if (blogFields.deadline && blogFields.deadline < startVal.slice(0, 10)) return showError('제출 마감일이 체험일보다 빠릅니다.');
+                if (!formUndated && blogFields.deadline && blogFields.deadline < startVal.slice(0, 10)) return showError('제출 마감일이 체험일보다 빠릅니다.');
             }
-            if (!startVal || !endVal) return showError('시작/종료 시간을 입력하세요.');
+            const undated = category === BLOG && formUndated;
+            if (!undated && (!startVal || !endVal)) return showError('시작/종료 시간을 입력하세요.');
 
-            let start, end;
-            if (allDay) {
+            let start = '', end = '';
+            if (undated) {
+                // 날짜 미정: 날짜 없이 저장
+            } else if (allDay) {
                 if (endVal < startVal) return showError('종료일이 시작일보다 빠릅니다.');
                 start = startVal; end = endVal;
             } else {
@@ -2813,7 +2940,7 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...';
             btn.disabled = true;
             try {
-                const input = { title, start, end, allDay, category, platform, memo, ...blogFields };
+                const input = { title, start, end, allDay, category, platform, memo, undated, ...blogFields };
                 if (editingId) await updateEventDoc(editingId, input);
                 else await addEventDoc(input);
                 closeModal('add-modal');

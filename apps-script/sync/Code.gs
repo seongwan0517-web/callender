@@ -227,7 +227,7 @@ function sendDailyReminders() {
   function add(emails, kind, text) {
     emails.forEach(function (e) {
       if (!e) return;
-      const u = perUser[e] || (perUser[e] = { visits: [], deadlines: [] });
+      const u = perUser[e] || (perUser[e] = { visits: [], deadlines: [], undated: [] });
       u[kind].push(text);
     });
   }
@@ -235,6 +235,8 @@ function sendDailyReminders() {
   listDocs("events").forEach(function (doc) {
     const d = doc.data;
     if (d.done) return;   // 완료한 협찬은 알리지 않음
+    // 날짜 미정 협찬: 날짜를 잡으라고 매일 아침 한 줄 (협찬이므로 알림 켠 멤버 전원)
+    if (d.undated && d.category === BLOG_CATEGORY) add(everyone, "undated", d.title);
     const to = d.category === BLOG_CATEGORY ? everyone : [d.authorEmail];
     if (coversDay(d, today, tz)) {
       const time = d.allDay ? "" : Utilities.formatDate(new Date(d.start), tz, "HH:mm") + " ";
@@ -250,8 +252,13 @@ function sendDailyReminders() {
     const parts = [];
     if (u.visits.length) parts.push("오늘 일정 " + u.visits.length + "개");
     if (u.deadlines.length) parts.push("마감 " + u.deadlines.length + "개");
+    if (u.undated.length) parts.push("날짜 미정 " + u.undated.length + "건");
     const items = u.deadlines.concat(u.visits);
-    const body = items.slice(0, 4).join("\n") + (items.length > 4 ? "\n외 " + (items.length - 4) + "개" : "");
+    var body = items.slice(0, 4).join("\n") + (items.length > 4 ? "\n외 " + (items.length - 4) + "개" : "");
+    if (u.undated.length) {
+      const names = u.undated.slice(0, 2).join(", ") + (u.undated.length > 2 ? " 외 " + (u.undated.length - 2) + "건" : "");
+      body = (body ? body + "\n" : "") + "📌 날짜 미정 협찬: " + names + " — 날짜를 잡아 주세요";
+    }
     tokens.filter(function (t) { return t.data.email === email; }).forEach(function (t) {
       const r = sendPush(t.id, "📅 " + parts.join(" · "), body, "daily-" + today);
       if (r === "sent") sent++;
