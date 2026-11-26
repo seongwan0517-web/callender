@@ -279,3 +279,20 @@ function fsQueryEq(collection, field, value) {
     .filter(function (x) { return x.document; })
     .map(function (x) { return { id: x.document.name.split("/").pop(), data: fromFields(x.document.fields || {}) }; });
 }
+
+// 진단용: 특정 달의 수입·고정비용 줄을 칸 이름과 함께 그대로 로그로 보여줌 (시트는 바꾸지 않음)
+function debugBudgetMonths() {
+  const yms = ["2026-10", "2026-11", "2026-12"];
+  const ss = SpreadsheetApp.openById(budgetSheetId());
+  ["income", "fixed"].forEach(function (key) {
+    const m = readBudgetTab(ss, key);
+    console.log("[" + m.name + "] 월 줄: " + m.rows.map(function (x) { return x.ym + "@" + (x.r + 1); }).join(", "));
+    m.rows.filter(function (x) { return yms.indexOf(x.ym) !== -1; }).forEach(function (row) {
+      const cells = m.cols.filter(function (c) { return c.c >= 2; }).map(function (c) {
+        const v = m.values[row.r][c.c], f = m.formulas[row.r][c.c];
+        return colLetter(c.c) + "(" + (c.group ? c.group + "/" : "") + c.label + ")=" + JSON.stringify(v) + (f ? " 수식" : "");
+      });
+      console.log("  " + row.ym + " (" + (row.r + 1) + "행): " + cells.join(" | "));
+    });
+  });
+}
