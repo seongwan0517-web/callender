@@ -260,6 +260,21 @@
         .bonus-row i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
         .bonus-row strong { margin-left: auto; color: var(--text); font-size: 14px; font-weight: 800; }
         .bonus-split { font-size: 10px; color: var(--faint); text-align: right; margin-top: -1px; }
+        .bill-table-wrap { overflow-x: auto; margin: 0 -4px; }
+        .bill-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px; }
+        .bill-table th, .bill-table td { padding: 7px 6px; text-align: right; white-space: nowrap; }
+        .bill-table thead th { font-size: 11px; color: var(--faint); font-weight: 700; border-bottom: 1px solid var(--line); }
+        .bill-table thead th button { font-weight: 800; }
+        .bill-table tbody th { text-align: left; font-weight: 700; position: sticky; left: 0; background: var(--surface); }
+        .bill-table tbody th i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+        .bill-table tbody th em { font-style: normal; font-size: 10px; color: var(--faint); }
+        .bill-table td { font-weight: 700; font-variant-numeric: tabular-nums; }
+        .bill-table .sel { background: rgba(59, 130, 246, .12); color: var(--text); }
+        .bill-table thead th.sel { color: var(--c-blue); }
+        .bill-table td.avg { color: var(--muted); font-weight: 600; }
+        .bill-table tr + tr th, .bill-table tr + tr td { border-top: 1px solid var(--line); }
+        .bill-table tr.sum th, .bill-table tr.sum td { background-color: var(--surface-2); }
+        .bill-table tr.sum td.sel { background: rgba(59, 130, 246, .18); }
         .quick-btn { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); transition: background .15s; }
         .quick-btn:hover { background: var(--surface-2); }
         .quick-btn b { display: block; font-size: 14px; }
@@ -280,7 +295,7 @@
         .hm-cell { height: 30px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: #fff; overflow: hidden; }
         .hm-cell.hm-none { background: #1c1c1f; }
         .hm-cell.sel { outline: 2px solid #fff; outline-offset: 1px; }
-        @media (max-width: 480px) { .hm-cell span { display: none; } }
+        @media (max-width: 480px) { .hm-cell { font-size: 7px; letter-spacing: -.04em; height: 28px; } }
         .stock-table { font-size: 13px; }
         .st-h, .st-r { display: grid; grid-template-columns: minmax(0, 1.6fr) 1fr 0.9fr 0.8fr; gap: 8px; align-items: center; padding: 7px 0; }
         .st-h { font-size: 11px; color: var(--faint); font-weight: 700; border-bottom: 1px solid var(--line); }
@@ -439,7 +454,7 @@
         html[data-theme="light"] .theme-seg button.active { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
     </style>
     <!-- 디자인: Tailwind 를 미리 빌드한 파일 (예전 CDN 처럼 위 스타일 뒤에 둠 / 다시 만들기: build/README.md) -->
-    <link rel="stylesheet" href="/app.css?v=6">
+    <link rel="stylesheet" href="/app.css?v=7">
 </head>
 <body data-tab="home" data-side="home">
 
@@ -2972,7 +2987,8 @@
                 const ym = `${y}-${pad(mo)}`;
                 const m = all.find(x => x.ym === ym);
                 if (!m) return `<div class="hm-cell hm-none"></div>`;
-                const a = 0.18 + 0.82 * Math.min(1, Math.abs(m.settle) / maxAbs);
+                // 금액이 작아도 칸이 비어 보이지 않도록 최소 진하기 0.45
+                const a = 0.45 + 0.55 * Math.min(1, Math.abs(m.settle) / maxAbs);
                 const bg = m.settle >= 0 ? `rgba(34,197,94,${a})` : `rgba(239,68,68,${a})`;
                 return `<button class="hm-cell ${ym === selYm ? 'sel' : ''}" style="background:${bg}" onclick="selectBudgetMonth('${ym}')" title="${ymLabel(ym)} ${signed(m.settle)}원">
                             <span>${Math.abs(m.settle) >= 1e6 ? (m.settle / 1e6).toFixed(1) + 'M' : Math.round(m.settle / 1e4) + '만'}</span></button>`;
@@ -3164,15 +3180,54 @@
                     }).join('')}
                 </div>`;
 
+            // 카드값·관리비·가스비 월별 표 (지출·고정비용 탭에서 연동, 선택한 달 포함 최근 6개월)
+            const billYms = Array.from({ length: 6 }, (_, i) => ymShift(ym, i - 5));
+            const billV = (y, kind, person, it) => (ed[`${y}|${kind}|${person}|${it}`] || {}).v || 0;
+            const billLines = [
+                ...BILL_GROUPS.filter(g => g.kind === 'card').flatMap(g => g.items.map(it => ({ label: it, person: g.person, kind: g.kind, item: it }))),
+                { sum: 'card', label: '카드 합계' },
+                { label: '관리비', person: '다훈', kind: 'utility', item: '관리비', icon: 'fa-bolt' },
+                { label: '가스비', person: '다훈', kind: 'utility', item: '가스비', icon: 'fa-fire-flame-simple' },
+                { sum: 'utility', label: '공과금 합계' }
+            ];
+            const lineVal = (l, y) => l.sum
+                ? BILL_GROUPS.filter(g => g.kind === l.sum).reduce((a, g) => a + g.items.reduce((s, it) => s + billV(y, g.kind, g.person, it), 0), 0)
+                : billV(y, l.kind, l.person, l.item);
+            const billCell = (v, y) => `<td class="${y === ym ? 'sel' : ''}">${v ? fmtMoney(v) : '<span class="text-gray-500">−</span>'}</td>`;
+            const billCard = `
+                <div class="bg-card">
+                    <h3>카드값 · 관리비 · 가스비 <small>월별 · 시트 지출/고정비용 탭</small></h3>
+                    <div class="bill-table-wrap">
+                        <table class="bill-table">
+                            <thead><tr><th></th>${billYms.map(y => `<th class="${y === ym ? 'sel' : ''}"><button onclick="selectBudgetMonth('${y}')">${y.slice(0, 4) !== ym.slice(0, 4) ? y.slice(2, 4) + '.' : ''}${Number(y.slice(5))}월</button></th>`).join('')}<th>평균</th></tr></thead>
+                            <tbody>
+                                ${billLines.map(l => {
+                                    const vals = billYms.map(y => lineVal(l, y));
+                                    const nz = vals.filter(Boolean);
+                                    const avg = nz.length ? Math.round(nz.reduce((a, b) => a + b, 0) / nz.length) : 0;
+                                    const name = l.sum
+                                        ? `<b>${l.label}</b>`
+                                        : (l.kind === 'card' ? `<i style="background:${PERSON_COLOR[l.person]}"></i>${escapeHtml(l.label)} <em>${l.person}</em>` : `<span class="text-yellow-300"><i class="fa-solid ${l.icon}"></i></span> ${l.label}`);
+                                    return `<tr class="${l.sum ? 'sum' : ''}"><th>${name}</th>${vals.map((v, i) => billCell(v, billYms[i])).join('')}<td class="avg">${avg ? fmtMoney(avg) : '−'}</td></tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">달 이름을 누르면 그 달로 이동 · 평균은 금액이 있는 달만</p>
+                </div>`;
+
             body.innerHTML = `
                 ${ticker}
                 ${quick}
+                <div class="mb-3">${billCard}</div>
                 <div class="mb-3">${pnlCard}</div>
                 <div class="mb-3">${trendCard}</div>
                 <div class="bg-grid two mb-3">${heatCard}${personCard}</div>
                 <div class="mb-3">${stockCard}</div>
                 ${renderBudgetHistoryHtml()}`;
             bindPnlHover(list);
+            // 좁은 화면: 월별 표를 오른쪽 끝(선택한 달)부터 보이게
+            document.querySelectorAll('.bill-table-wrap').forEach(w => { w.scrollLeft = w.scrollWidth; });
         }
 
         function renderBudgetHistoryHtml() {
