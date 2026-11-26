@@ -259,6 +259,7 @@
         .bonus-row { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 3px; }
         .bonus-row i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
         .bonus-row strong { margin-left: auto; color: var(--text); font-size: 14px; font-weight: 800; }
+        .bonus-split { font-size: 10px; color: var(--faint); text-align: right; margin-top: -1px; }
         .quick-btn { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); transition: background .15s; }
         .quick-btn:hover { background: var(--surface-2); }
         .quick-btn b { display: block; font-size: 14px; }
@@ -438,7 +439,7 @@
         html[data-theme="light"] .theme-seg button.active { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
     </style>
     <!-- 디자인: Tailwind 를 미리 빌드한 파일 (예전 CDN 처럼 위 스타일 뒤에 둠 / 다시 만들기: build/README.md) -->
-    <link rel="stylesheet" href="/app.css?v=5">
+    <link rel="stylesheet" href="/app.css?v=6">
 </head>
 <body data-tab="home" data-side="home">
 
@@ -2824,8 +2825,10 @@
         const SAVING_LABELS = /적금|연금|청약/;            // 저축성 항목은 지출 종목표에서 뺌
         const PERSON_COLOR = { '다훈': '#ec4899', '성완': '#3b82f6', '특별예산': '#eab308' };
         const BUDGET_PEOPLE_APP = ['다훈', '성완'];
-        // 시트의 그 달 회사 보너스 (수입에 이미 포함된 금액)
-        const bonusAt = (ym, person) => (((budget && budget.editable) || {})[`${ym}|bonus|${person}|보너스(회사)`] || {}).v || 0;
+        // 그 달 보너스 = 수입 탭의 '보너스(회사)' + '개인' (둘 다 수입에 이미 포함된 금액)
+        const bonusCompanyAt = (ym, person) => (((budget && budget.editable) || {})[`${ym}|bonus|${person}|보너스(회사)`] || {}).v || 0;
+        const bonusPersonalAt = (ym, person) => Number((((budget && budget.income) || {})[ym] || {})[person]?.['개인']) || 0;
+        const bonusAt = (ym, person) => bonusCompanyAt(ym, person) + bonusPersonalAt(ym, person);
         const UP = '#22c55e', DOWN = '#ef4444';
         const won = n => `${(Number(n) || 0) < 0 ? '−' : ''}${fmtMoney(Math.abs(Number(n) || 0))}원`;
         const signed = n => `${(Number(n) || 0) > 0 ? '+' : (Number(n) || 0) < 0 ? '−' : ''}${fmtMoney(Math.abs(Number(n) || 0))}`;
@@ -3048,7 +3051,8 @@
             const bonusShare = m && m.income && bonusSum ? Math.round(bonusSum / m.income * 100) : 0;
             const bonusTotalCell = `<div class="bonus-cell"><span><i class="fa-solid fa-gift"></i> 보너스 합계</span><b class="${bonusSum ? 'text-green-400' : ''}">${fmtMoney(bonusSum)}</b><em>${bonusSum ? `수입의 ${bonusShare}%` : '이 달 보너스 없음'}</em></div>`;
             const bonusPersonCell = `<div class="bonus-cell"><span><i class="fa-solid fa-user-group"></i> 사람별 보너스</span>${BUDGET_PEOPLE_APP.map(p => `
-                <div class="bonus-row"><i style="background:${PERSON_COLOR[p]}"></i>${p}<strong>${fmtMoney(bonusOf(p))}</strong></div>`).join('')}</div>`;
+                <div class="bonus-row"><i style="background:${PERSON_COLOR[p]}"></i>${p}<strong>${fmtMoney(bonusOf(p))}</strong></div>
+                ${bonusCompanyAt(ym, p) && bonusPersonalAt(ym, p) ? `<div class="bonus-split">회사 ${fmtMoney(bonusCompanyAt(ym, p))} + 개인 ${fmtMoney(bonusPersonalAt(ym, p))}</div>` : (bonusPersonalAt(ym, p) ? '<div class="bonus-split">개인 칸 금액</div>' : '')}`).join('')}</div>`;
             const future = ym > ymNow();
             const ticker = m ? `
                 <div class="ticker mb-3">
