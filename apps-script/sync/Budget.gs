@@ -44,16 +44,22 @@ function readBudgetTab(ss, key) {
 
   // 데이터 줄: B열이 'N월', A열(병합)은 'YYYY년'
   const rows = [];
-  var year = null, firstData = -1;
+  var year = null, firstData = -1, lastY = null, lastM = 0;
   for (var r = 0; r < values.length; r++) {
     const a = String(values[r][0] || "").trim();
     const b = String(values[r][1] || "").trim();
-    const yy = /^(\d{4})년$/.exec(a);
+    const yy = /^(\d{4})\s*년?$/.exec(a);
     if (yy) year = Number(yy[1]);
-    const mm = /^(\d{1,2})월$/.exec(b);
+    const mm = /^(\d{1,2})\s*월$/.exec(b);
     if (mm && year) {
+      const mo = Number(mm[1]);
+      // 연도 칸이 비었거나 앞 해를 그대로 복사해 둔 경우: 달이 다시 1월로 돌아가면 다음 해로 본다
+      if (lastY !== null && (year < lastY || (year === lastY && mo <= lastM))) {
+        year = mo <= lastM ? lastY + 1 : lastY;
+      }
       if (firstData < 0) firstData = r;
-      rows.push({ r: r, ym: year + "-" + ("0" + mm[1]).slice(-2) });
+      rows.push({ r: r, ym: year + "-" + ("0" + mo).slice(-2) });
+      lastY = year; lastM = mo;
     }
   }
   if (firstData < 0) throw new Error("'" + name + "' 탭에서 월 데이터를 찾지 못했습니다.");
